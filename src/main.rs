@@ -32,7 +32,7 @@ fn main() {
         "亜紀の妹".to_string(),
     );
 
-    store.add(character1);
+    //store.add(character1);
 
     //if let Some(character) = store.find_mut(CharacterId(1)) {
     //character.set_age(20);
@@ -44,8 +44,11 @@ fn main() {
     //for character in &store {
     //println!("{}", character.name);
     //}
-    match store.add(character2) {
-        Ok(()) => println!("追加成功"),
-        Err(error) => println!("{}", error),
-    }
+
+    //save_character(&character);
+    //let text = character_to_text(&character1);
+    //println!("{}", text);
+    println!("{}", Race::Human);
+    println!("{}", Race::Other("Dragon".to_string()));
+    println!("{}", Gender::Male);
 }

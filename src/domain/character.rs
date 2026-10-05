@@ -1,4 +1,7 @@
-use crate::domain::ability::Ability;
+use crate::domain::{
+    ability::Ability,
+    character::Race::{Beast, Demon, Elf, Human},
+};
 use std::fmt;
 #[derive(Debug)]
 
@@ -30,11 +33,33 @@ pub enum Race {
     Other(String),
 }
 
+impl std::fmt::Display for Race {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Human => write!(f, "Human"),
+            Self::Elf => write!(f, "Elf"),
+            Self::Demon => write!(f, "Demon"),
+            Self::Beast => write!(f, "Beast"),
+            Self::Other(name) => write!(f, "{}", name),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Gender {
     Male,
     Female,
     Other,
+}
+
+impl std::fmt::Display for Gender {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Male => write!(f, "Male"),
+            Self::Female => write!(f, "Female"),
+            Self::Other => write!(f, "Other"),
+        }
+    }
 }
 
 impl Character {
