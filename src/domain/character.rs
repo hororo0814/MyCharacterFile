@@ -1,10 +1,6 @@
-use crate::domain::{
-    ability::Ability,
-    character::Race::{Beast, Demon, Elf, Human},
-};
+use crate::domain::ability::Ability;
 use std::fmt;
-#[derive(Debug)]
-
+#[derive(Debug, PartialEq)]
 pub struct Character {
     pub id: CharacterId,
     pub name: String,
@@ -24,7 +20,7 @@ impl fmt::Display for CharacterId {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Race {
     Human,
     Elf,
@@ -45,7 +41,7 @@ impl std::fmt::Display for Race {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Gender {
     Male,
     Female,

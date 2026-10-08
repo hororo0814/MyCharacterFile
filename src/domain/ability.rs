@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Ability {
     pub name: String,
     pub power: u32,
@@ -6,12 +6,23 @@ pub struct Ability {
     pub cost_mp: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AbilityType {
     Attack,
     Heal,
     Buff,
     Debuff,
+}
+
+impl std::fmt::Display for AbilityType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Attack => write!(f, "Attack"),
+            Self::Heal => write!(f, "Heal"),
+            Self::Buff => write!(f, "Buff"),
+            Self::Debuff => write!(f, "Debuff"),
+        }
+    }
 }
 
 impl Ability {

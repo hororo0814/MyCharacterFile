@@ -16,7 +16,8 @@ impl CharacterStore {
         if self.find(character.id).is_some() {
             return Err(CharacterStoreErr::DuplicateId(character.id));
         }
-        Ok(self.characters.push(character))
+        self.characters.push(character);
+        Ok(())
     }
 
     pub fn get_all(&self) -> &[Character] {
@@ -61,4 +62,12 @@ pub enum CharacterStoreErr {
     //ファイル関連のエラー
     #[error("ファイル操作に失敗しました")]
     FileError(#[from] std::io::Error),
+
+    //storyの文字数上限
+    #[error("Storyの文字数は50文字未満に収めてください")]
+    WordLenError(),
+
+    //ファイルの形式がおかしい
+    #[error("保存ファイルの形式が不正です: {0}")]
+    InvalidFormat(String),
 }
