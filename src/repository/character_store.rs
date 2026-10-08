@@ -57,4 +57,8 @@ impl<'a> IntoIterator for &'a CharacterStore {
 pub enum CharacterStoreErr {
     #[error("Character ID {0}はすでに存在します")]
     DuplicateId(CharacterId),
+
+    //ファイル関連のエラー
+    #[error("ファイル操作に失敗しました")]
+    FileError(#[from] std::io::Error),
 }

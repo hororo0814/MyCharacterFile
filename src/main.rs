@@ -1,10 +1,12 @@
 mod domain;
 mod repository;
-use core::error;
 
 use domain::character::{Character, CharacterId, Gender, Race};
 
 use crate::domain::ability::{Ability, AbilityType};
+use crate::repository::character_file::character_to_text;
+use crate::repository::character_file::load_text;
+use crate::repository::character_file::save_store;
 use crate::repository::character_store::CharacterStore;
 
 fn main() {
@@ -32,7 +34,7 @@ fn main() {
         "亜紀の妹".to_string(),
     );
 
-    //store.add(character1);
+    store.add(character1).unwrap();
 
     //if let Some(character) = store.find_mut(CharacterId(1)) {
     //character.set_age(20);
@@ -48,7 +50,7 @@ fn main() {
     //save_character(&character);
     //let text = character_to_text(&character1);
     //println!("{}", text);
-    println!("{}", Race::Human);
-    println!("{}", Race::Other("Dragon".to_string()));
-    println!("{}", Gender::Male);
+    save_store(&store).unwrap();
+    let text = load_text().unwrap();
+    println!("{}", text);
 }
