@@ -1,3 +1,4 @@
+use crate::domain::ability::{Ability, AbilityType};
 use crate::domain::character::{Character, CharacterId, Gender, Race};
 use crate::repository::character_file::save_store;
 use crate::repository::character_store::CharacterStore;
@@ -9,6 +10,11 @@ pub struct CharacterApp {
     age: String,
     race: Race,
     gender: Gender,
+    story: String,
+    ability_name: String,
+    ability_power: String,
+    ability_type: AbilityType,
+    ability_mp: String,
 }
 
 impl CharacterApp {
@@ -35,6 +41,11 @@ impl CharacterApp {
         let blank_age = String::new();
         let blank_race = Race::Human;
         let blank_gender = Gender::Male;
+        let blank_story = String::new();
+        let blank_abi_name = String::new();
+        let blank_abi_power = String::new();
+        let blank_abi_type = AbilityType::Attack;
+        let blank_abi_mp = String::new();
 
         //キャラクターを返す
         Self {
@@ -43,6 +54,11 @@ impl CharacterApp {
             age: blank_age,
             race: blank_race,
             gender: blank_gender,
+            story: blank_story,
+            ability_name: blank_abi_name,
+            ability_power: blank_abi_power,
+            ability_type: blank_abi_type,
+            ability_mp: blank_abi_mp,
         }
     }
 }
@@ -74,26 +90,35 @@ impl eframe::App for CharacterApp {
             ui.selectable_value(&mut self.gender, Gender::Female, "女性");
             ui.selectable_value(&mut self.gender, Gender::Other, "その他");
 
+            //ストーリーの入力
+            ui.label("ストーリー");
+            ui.text_edit_singleline(&mut self.story);
+
+            //区切り線で区切る
+            ui.separator();
+
             //能力の入力
             ui.label(format!("所持している能力の設定を行います"));
             ui.label(format!("能力名"));
+            ui.text_edit_singleline(&mut self.ability_name);
+            ui.label(format!("威力"));
+            ui.text_edit_singleline(&mut self.ability_power);
+            ui.label(format!("属性"));
+            ui.selectable_value(&mut self.ability_type, AbilityType::Attack, "攻撃");
+            ui.selectable_value(&mut self.ability_type, AbilityType::Heal, "回復");
+            ui.selectable_value(&mut self.ability_type, AbilityType::Buff, "バフ");
+            ui.selectable_value(&mut self.ability_type, AbilityType::Debuff, "デバフ");
+            ui.label(format!("消費MP"));
+            ui.text_edit_singleline(&mut self.ability_mp);
 
-            //登録ボタンが押されたときの処理
+            // 登録ボタンが押されたときの処理
             if ui.button("登録").clicked() {
-                //Idを決める
                 if self.name.trim().is_empty() {
-                    ui.label(format!("名前を空欄にすることはできません"));
+                    ui.label("名前を空欄にすることはできません");
+                } else if self.ability_name.trim().is_empty() {
+                    ui.label("能力名を空欄にすることはできません");
                 } else {
-                    //次のIDを決める
-                    let next_id = self
-                        .store
-                        .get_all()
-                        .iter()
-                        .map(|character| character.id.0)
-                        .max()
-                        .unwrap_or(0)
-                        + 1;
-
+                    // 年齢を Option<u32> に変換する
                     let age_result: Result<Option<u32>, std::num::ParseIntError> =
                         if self.age.trim().is_empty() {
                             Ok(None)
@@ -101,30 +126,79 @@ impl eframe::App for CharacterApp {
                             self.age.trim().parse::<u32>().map(Some)
                         };
 
-                    //年齢が数字で入力されているか確認する
                     match age_result {
                         Ok(s_age) => {
-                            //Character::new()で生成
-                            let new_character = Character::new(
-                                CharacterId(next_id),
-                                self.name.clone(),
-                                s_age,
-                                self.race.clone(),
-                                self.gender.clone(),
-                                Vec::new(),
-                                String::new(),
-                            );
-                            //self.store.add() で登録
-                            //self.save_store() で保存
-                            match self.store.add(new_character) {
-                                Ok(()) => match save_store(&self.store) {
-                                    Ok(()) => self.name.clear(),
-                                    Err(error) => {
-                                        ui.label(error.to_string());
+                            // 威力を u32 に変換する
+                            match self.ability_power.trim().parse::<u32>() {
+                                Ok(power) => {
+                                    // 消費MPを u32 に変換する
+                                    match self.ability_mp.trim().parse::<u32>() {
+                                        Ok(mp) => {
+                                            // 次のIDを決める
+                                            let next_id = self
+                                                .store
+                                                .get_all()
+                                                .iter()
+                                                .map(|character| character.id.0)
+                                                .max()
+                                                .unwrap_or(0)
+                                                + 1;
+
+                                            // 能力を生成する
+                                            let new_ability = Ability::new(
+                                                self.ability_name.clone(),
+                                                power,
+                                                self.ability_type.clone(),
+                                                mp,
+                                            );
+
+                                            // 能力をリストに入れる
+                                            let abilities = vec![new_ability];
+
+                                            // キャラクターを生成する
+                                            let new_character = Character::new(
+                                                CharacterId(next_id),
+                                                self.name.clone(),
+                                                s_age,
+                                                self.race.clone(),
+                                                self.gender.clone(),
+                                                abilities,
+                                                self.story.clone(),
+                                            );
+
+                                            // キャラクターを登録する
+                                            match self.store.add(new_character) {
+                                                Ok(()) => {
+                                                    // ファイルに保存する
+                                                    match save_store(&self.store) {
+                                                        Ok(()) => {
+                                                            self.name.clear();
+                                                            self.age.clear();
+                                                            self.story.clear();
+                                                            self.ability_name.clear();
+                                                            self.ability_power.clear();
+                                                            self.ability_mp.clear();
+                                                        }
+                                                        Err(error) => {
+                                                            ui.label(format!(
+                                                                "保存エラー: {}",
+                                                                error
+                                                            ));
+                                                        }
+                                                    }
+                                                }
+                                                Err(error) => {
+                                                    ui.label(format!("登録エラー: {}", error));
+                                                }
+                                            }
+                                        }
+                                        Err(_) => {
+                                            ui.label("消費MPは半角数字で入力してください");
+                                        }
                                     }
-                                },
-                                Err(error) => {
-                                    ui.label(error.to_string());
+                                }
+                                Err(_) => {
+                                    ui.label("威力は半角数字で入力してください");
                                 }
                             }
                         }
@@ -133,33 +207,31 @@ impl eframe::App for CharacterApp {
                         }
                     }
                 }
-
-                println!("ボタンが押された{}", self.name);
             }
 
+            // 登録済みキャラクターを表示する
+            ui.separator();
+            ui.heading("登録済みキャラクター");
+
             for character in self.store.get_all() {
-                //キャラクターの情報を表示
                 let age_text = match character.age {
                     Some(age) => format!("年齢：{}歳", age),
                     None => "年齢不詳".to_string(),
                 };
+
                 ui.label(format!("名前：{}", character.name));
-                ui.label(format!("{}", age_text));
+                ui.label(age_text);
                 ui.label(format!("種族：{}", character.race));
                 ui.label(format!("性別：{}", character.gender));
                 ui.label(format!("ストーリー：{}", character.story));
 
-                //区切り線で区切る
-                ui.separator();
-
-                //能力の情報を表示
                 for ability in &character.abilities {
-                    ui.label(format!("< {}の所持する能力 >", &character.name,));
-                    ui.label(format!("能力名:{}", ability.name,));
-                    ui.label(format!("威力:{}", ability.power,));
-                    ui.label(format!("タイプ:{}", ability.ability_type,));
-                    ui.label(format!("消費MP:{}", ability.cost_mp,));
+                    ui.label(format!("能力名：{}", ability.name));
+                    ui.label(format!("威力：{}", ability.power));
+                    ui.label(format!("タイプ：{}", ability.ability_type));
+                    ui.label(format!("消費MP：{}", ability.cost_mp));
                 }
+
                 ui.separator();
             }
         });

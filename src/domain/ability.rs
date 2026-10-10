@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Ability {
     pub name: String,
     pub power: u32,
@@ -6,7 +6,7 @@ pub struct Ability {
     pub cost_mp: u32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum AbilityType {
     Attack,
     Heal,
