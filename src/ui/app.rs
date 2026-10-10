@@ -6,6 +6,9 @@ use eframe::egui;
 pub struct CharacterApp {
     store: CharacterStore,
     name: String,
+    age: String,
+    race: Race,
+    gender: Gender,
 }
 
 impl CharacterApp {
@@ -29,11 +32,17 @@ impl CharacterApp {
 
         //毎回空文字にする
         let blank_name = String::new();
+        let blank_age = String::new();
+        let blank_race = Race::Human;
+        let blank_gender = Gender::Male;
 
         //キャラクターを返す
         Self {
             store,
             name: blank_name,
+            age: blank_age,
+            race: blank_race,
+            gender: blank_gender,
         }
     }
 }
@@ -45,17 +54,25 @@ impl eframe::App for CharacterApp {
 
             //テキスト入力欄
             //名前の入力
-            ui.label(format!("名前"));
+            ui.label("名前");
             ui.text_edit_singleline(&mut self.name);
 
             //年齢の入力
-            ui.label(format!("年齢"));
+            ui.label("年齢");
+            ui.text_edit_singleline(&mut self.age);
 
-            //種族の入力
-            ui.label(format!("種族"));
+            //種族の選択
+            ui.label("種族");
+            ui.selectable_value(&mut self.race, Race::Human, "人間");
+            ui.selectable_value(&mut self.race, Race::Elf, "エルフ");
+            ui.selectable_value(&mut self.race, Race::Beast, "獣人");
+            ui.selectable_value(&mut self.race, Race::Demon, "悪魔");
 
-            //性別の入力
-            ui.label(format!("性別"));
+            //性別の選択
+            ui.label("性別");
+            ui.selectable_value(&mut self.gender, Gender::Male, "男性");
+            ui.selectable_value(&mut self.gender, Gender::Female, "女性");
+            ui.selectable_value(&mut self.gender, Gender::Other, "その他");
 
             //能力の入力
             ui.label(format!("所持している能力の設定を行います"));
@@ -63,7 +80,7 @@ impl eframe::App for CharacterApp {
 
             //登録ボタンが押されたときの処理
             if ui.button("登録").clicked() {
-                //名前が空でないか確認する
+                //Idを決める
                 if self.name.trim().is_empty() {
                     ui.label(format!("名前を空欄にすることはできません"));
                 } else {
@@ -76,21 +93,43 @@ impl eframe::App for CharacterApp {
                         .max()
                         .unwrap_or(0)
                         + 1;
-                    //Character::new()で生成
-                    let new_character = Character::new(
-                        CharacterId(next_id),
-                        self.name.clone(),
-                        None,
-                        Race::Human,
-                        Gender::Male,
-                        Vec::new(),
-                        String::new(),
-                    );
-                    //self.store.add() で登録
-                    match self.store.add(new_character) {
-                        Ok(()) => self.name.clear(),
-                        Err(error) => {
-                            ui.label(error.to_string());
+
+                    let age_result: Result<Option<u32>, std::num::ParseIntError> =
+                        if self.age.trim().is_empty() {
+                            Ok(None)
+                        } else {
+                            self.age.trim().parse::<u32>().map(Some)
+                        };
+
+                    //年齢が数字で入力されているか確認する
+                    match age_result {
+                        Ok(s_age) => {
+                            //Character::new()で生成
+                            let new_character = Character::new(
+                                CharacterId(next_id),
+                                self.name.clone(),
+                                s_age,
+                                self.race.clone(),
+                                self.gender.clone(),
+                                Vec::new(),
+                                String::new(),
+                            );
+                            //self.store.add() で登録
+                            //self.save_store() で保存
+                            match self.store.add(new_character) {
+                                Ok(()) => match save_store(&self.store) {
+                                    Ok(()) => self.name.clear(),
+                                    Err(error) => {
+                                        ui.label(error.to_string());
+                                    }
+                                },
+                                Err(error) => {
+                                    ui.label(error.to_string());
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            ui.label("年齢は半角数字で入力してください");
                         }
                     }
                 }

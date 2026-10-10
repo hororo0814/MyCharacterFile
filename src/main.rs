@@ -31,6 +31,8 @@ fn create_sample_store() -> Result<CharacterStore, CharacterStoreErr> {
 }
 
 fn main() -> eframe::Result {
+    println!("作業ディレクトリ: {:?}", std::env::current_dir());
+    println!("読み込み対象: {:?}", std::fs::canonicalize("file.txt"));
     //ファイルが存在するかを確認
     let new_store = if Path::new("file.txt").exists() {
         println!("ファイルの存在を確認");

@@ -20,7 +20,7 @@ impl fmt::Display for CharacterId {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Race {
     Human,
     Elf,
@@ -41,7 +41,7 @@ impl std::fmt::Display for Race {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Gender {
     Male,
     Female,

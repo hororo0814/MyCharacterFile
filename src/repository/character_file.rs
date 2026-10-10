@@ -70,9 +70,15 @@ pub fn load_text() -> Result<CharacterStore, CharacterStoreErr> {
 
 //取得した文字列をCharacterStoreに変換
 fn text_to_store(text: &str) -> Result<CharacterStore, CharacterStoreErr> {
+    println!("読み込んだ文字列: {:?}", text);
+
     let mut store = CharacterStore::new();
-    for line in text.lines() {
-        let mut fields = line.split('|');
+
+    for line in text.lines().enumerate() {
+        if line.1.is_empty() {
+            continue;
+        }
+        let mut fields = line.1.split('|');
 
         //idについて，&str型をu64型にして，それをCharacterId型にする
         let id_text = fields
@@ -132,51 +138,53 @@ fn text_to_store(text: &str) -> Result<CharacterStore, CharacterStoreErr> {
         let ability_text = abilities_text.split(";");
 
         let mut abilities = Vec::new();
-        for one_ability in ability_text {
-            let mut ability_fields = one_ability.split(',');
+        if !abilities_text.is_empty() {
+            for one_ability in ability_text {
+                let mut ability_fields = one_ability.split(',');
 
-            let abi_name = ability_fields
-                .next()
-                .ok_or(CharacterStoreErr::InvalidFormat("file.txt".to_string()))?;
-            let abi_power = ability_fields
-                .next()
-                .ok_or(CharacterStoreErr::InvalidFormat("file.txt".to_string()))?
-                .parse()
-                .map_err(|_| CharacterStoreErr::InvalidFormat("file.txt".to_string()))?;
-            let abi_type = ability_fields
-                .next()
-                .ok_or(CharacterStoreErr::InvalidFormat("file.txt".to_string()))?;
-            let abi_mp = ability_fields
-                .next()
-                .ok_or(CharacterStoreErr::InvalidFormat("file.txt".to_string()))?
-                .parse()
-                .map_err(|_| CharacterStoreErr::InvalidFormat("file.txt".to_string()))?;
+                let abi_name = ability_fields
+                    .next()
+                    .ok_or(CharacterStoreErr::InvalidFormat("file.txt".to_string()))?;
+                let abi_power = ability_fields
+                    .next()
+                    .ok_or(CharacterStoreErr::InvalidFormat("file.txt".to_string()))?
+                    .parse()
+                    .map_err(|_| CharacterStoreErr::InvalidFormat("file.txt".to_string()))?;
+                let abi_type = ability_fields
+                    .next()
+                    .ok_or(CharacterStoreErr::InvalidFormat("file.txt".to_string()))?;
+                let abi_mp = ability_fields
+                    .next()
+                    .ok_or(CharacterStoreErr::InvalidFormat("file.txt".to_string()))?
+                    .parse()
+                    .map_err(|_| CharacterStoreErr::InvalidFormat("file.txt".to_string()))?;
 
-            //abilityの名前
-            let chara_abi_name: String = abi_name.to_string();
+                //abilityの名前
+                let chara_abi_name: String = abi_name.to_string();
 
-            //abilityのパワー
-            let chara_abi_power: u32 = abi_power;
+                //abilityのパワー
+                let chara_abi_power: u32 = abi_power;
 
-            //abilityのタイプ
-            let chara_abi_type = match abi_type {
-                "Attack" => AbilityType::Attack,
-                "Buff" => AbilityType::Buff,
-                "Debuff" => AbilityType::Debuff,
-                "Heal" => AbilityType::Heal,
-                _ => panic!("未知のAbilityTypeです"),
-            };
+                //abilityのタイプ
+                let chara_abi_type = match abi_type {
+                    "Attack" => AbilityType::Attack,
+                    "Buff" => AbilityType::Buff,
+                    "Debuff" => AbilityType::Debuff,
+                    "Heal" => AbilityType::Heal,
+                    _ => panic!("未知のAbilityTypeです"),
+                };
 
-            //abilityのcost_mp
-            let chara_abi_mp: u32 = abi_mp;
+                //abilityのcost_mp
+                let chara_abi_mp: u32 = abi_mp;
 
-            let ability = Ability::new(
-                chara_abi_name,
-                chara_abi_power,
-                chara_abi_type,
-                chara_abi_mp,
-            );
-            abilities.push(ability);
+                let ability = Ability::new(
+                    chara_abi_name,
+                    chara_abi_power,
+                    chara_abi_type,
+                    chara_abi_mp,
+                );
+                abilities.push(ability);
+            }
         }
 
         //storyについて
@@ -322,5 +330,22 @@ mod tests {
 
         assert_eq!(loaded.name, character.name);
         assert_eq!(loaded.age, character.age);
+    }
+
+    #[test]
+    fn test_text_to_store_two_characters() {
+        let text = concat!(
+            "1|亜紀|17|Human|Male|フレア,50,Attack,20;グリーンヒール,20,Heal,15|由紀とともに旅をする\n",
+            "2|由紀|16|Human|Female|ブルーオーシャン,35,Buff,20|亜紀の妹"
+        );
+
+        let store = text_to_store(text).unwrap();
+        let characters = store.get_all();
+
+        assert_eq!(characters.len(), 2);
+        assert_eq!(characters[0].name, "亜紀");
+        assert_eq!(characters[0].abilities.len(), 2);
+        assert_eq!(characters[1].name, "由紀");
+        assert_eq!(characters[1].abilities.len(), 1);
     }
 }
