@@ -109,6 +109,10 @@ pub enum CharacterStoreErr {
     //ファイルの形式がおかしい
     #[error("保存ファイルの形式が不正です: {0}")]
     InvalidFormat(String),
+
+    //テキスト入力欄が空白だった場合のエラー
+    #[error("入力欄を空白にすることはできません")]
+    EmptyError(),
 }
 
 #[cfg(test)]
