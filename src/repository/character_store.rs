@@ -29,6 +29,7 @@ impl CharacterStore {
         self.characters.iter().find(|character| character.id == id)
     }
 
+    ///Idから編集対象としてキャラクターを探す
     pub fn find_mut(&mut self, id: CharacterId) -> Option<&mut Character> {
         self.characters
             .iter_mut()
@@ -452,7 +453,7 @@ mod test {
     }
 
     #[test]
-    fn find_mut_test() {
+    fn find_mut_name_test() {
         let mut store = CharacterStore::new();
 
         //テスト用の能力を宣言
@@ -475,5 +476,52 @@ mod test {
             store.find(CharacterId(1)).unwrap().name,
             "亜紀太郎".to_string()
         )
+    }
+
+    #[test]
+    fn find_mut_age_test() {
+        let mut store = CharacterStore::new();
+
+        //テスト用の能力を宣言
+        let ability1 = Ability::new("フレア".to_string(), 50, AbilityType::Attack, 20);
+
+        //テスト用(Race:Human)キャラクターの宣言
+        let character1 = Character::new(
+            CharacterId(1),
+            "亜紀".to_string(),
+            Some(17),
+            Race::Human,
+            Gender::Male,
+            vec![ability1],
+            "由紀とともに旅をする".to_string(),
+        );
+
+        store.add(character1);
+        store.find_mut(CharacterId(1)).unwrap().age = Some(20);
+        assert_eq!(store.find(CharacterId(1)).unwrap().age, Some(20));
+    }
+
+    #[test]
+    ///年齢を None に変更するテスト
+    fn find_mut_no_age_test() {
+        let mut store = CharacterStore::new();
+
+        //テスト用の能力を宣言
+        let ability1 = Ability::new("フレア".to_string(), 50, AbilityType::Attack, 20);
+
+        //テスト用(Race:Human)キャラクターの宣言
+        let character1 = Character::new(
+            CharacterId(1),
+            "亜紀".to_string(),
+            Some(17),
+            Race::Human,
+            Gender::Male,
+            vec![ability1],
+            "由紀とともに旅をする".to_string(),
+        );
+
+        store.add(character1);
+        store.find_mut(CharacterId(1)).unwrap().age = None;
+        assert_eq!(store.find(CharacterId(1)).unwrap().age, None);
     }
 }

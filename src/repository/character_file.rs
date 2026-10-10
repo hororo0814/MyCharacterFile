@@ -68,6 +68,7 @@ pub fn load_text() -> Result<CharacterStore, CharacterStoreErr> {
     text_to_store(&text)
 }
 
+//取得した文字列をCharacterStoreに変換
 fn text_to_store(text: &str) -> Result<CharacterStore, CharacterStoreErr> {
     let mut store = CharacterStore::new();
     for line in text.lines() {
@@ -182,7 +183,7 @@ fn text_to_store(text: &str) -> Result<CharacterStore, CharacterStoreErr> {
         let story_text = fields
             .next()
             .ok_or(CharacterStoreErr::InvalidFormat("file.txt".to_string()))?;
-        if story_text.len() > 40 {
+        if story_text.len() > 80 {
             return Err(CharacterStoreErr::WordLenError());
         }
         let character_story: String = story_text.to_string();
