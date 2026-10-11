@@ -474,7 +474,7 @@ mod test {
             "由紀とともに旅をする".to_string(),
         );
 
-        store.add(character1);
+        let _ = store.add(character1);
         store.find_mut(CharacterId(1)).unwrap().name = "亜紀太郎".to_string();
         assert_eq!(
             store.find(CharacterId(1)).unwrap().name,
@@ -500,7 +500,7 @@ mod test {
             "由紀とともに旅をする".to_string(),
         );
 
-        store.add(character1);
+        let _ = store.add(character1);
         store.find_mut(CharacterId(1)).unwrap().age = Some(20);
         assert_eq!(store.find(CharacterId(1)).unwrap().age, Some(20));
     }
@@ -524,7 +524,7 @@ mod test {
             "由紀とともに旅をする".to_string(),
         );
 
-        store.add(character1);
+        let _ = store.add(character1);
         store.find_mut(CharacterId(1)).unwrap().age = None;
         assert_eq!(store.find(CharacterId(1)).unwrap().age, None);
     }
