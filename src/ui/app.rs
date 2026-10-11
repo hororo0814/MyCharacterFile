@@ -133,7 +133,6 @@ impl eframe::App for CharacterApp {
                     ui.label("消費MP");
                     ui.text_edit_singleline(&mut self.ability_mp);
 
-                    //能力の追加機能
                     // 能力の追加機能
                     ui.separator();
                     ui.heading("既存キャラクターへの能力追加");
