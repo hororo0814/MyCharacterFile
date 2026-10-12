@@ -509,6 +509,9 @@ impl eframe::App for CharacterApp {
                     //区切り線で区切る
                     ui.separator();
 
+                    //登録機能
+                    self.show_registration_ui(ui);
+
                     // 能力の追加機能
                     ui.separator();
                     ui.heading("既存キャラクターの編集");
