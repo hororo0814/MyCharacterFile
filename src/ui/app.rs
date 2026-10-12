@@ -2,7 +2,17 @@ use crate::domain::ability::{Ability, AbilityType};
 use crate::domain::character::{Character, CharacterId, Gender, Race};
 use crate::repository::character_file::save_store;
 use crate::repository::character_store::CharacterStore;
-use eframe::egui;
+use eframe::egui::{self, Stroke};
+
+#[derive(Clone, Copy, PartialEq)]
+enum AppTab {
+    //図鑑ページ
+    Encyclopedia,
+    //新規登録ページ
+    Register,
+    //キャラクター管理ページ
+    Manage,
+}
 
 pub struct CharacterApp {
     store: CharacterStore,
@@ -35,6 +45,7 @@ pub struct CharacterApp {
     display_confirm: bool,
     //削除予定のキャラクターIDを保持
     delete_character_id: Option<CharacterId>,
+    active_tab: AppTab,
 }
 
 impl CharacterApp {
@@ -105,6 +116,7 @@ impl CharacterApp {
             edit_story: blank_edit_story,
             display_confirm: first_display_confirm,
             delete_character_id: first_delete_confirm,
+            active_tab: AppTab::Encyclopedia,
         }
     }
 
@@ -112,9 +124,11 @@ impl CharacterApp {
     fn show_registration_ui(&mut self, ui: &mut egui::Ui) {
         //キャラクター新規登録
         //名前の入力
+        ui.separator();
         ui.heading("新規キャラクター登録欄");
+        ui.separator();
         ui.label("名前");
-        ui.text_edit_singleline(&mut self.name);
+        ui.add_sized([280.0, 28.0], egui::TextEdit::singleline(&mut self.name));
 
         //年齢の入力
         ui.label("年齢");
@@ -122,20 +136,35 @@ impl CharacterApp {
 
         //種族の選択
         ui.label("種族");
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.race, Race::Human, "人間");
-            ui.selectable_value(&mut self.race, Race::Elf, "エルフ");
-            ui.selectable_value(&mut self.race, Race::Beast, "獣人");
-            ui.selectable_value(&mut self.race, Race::Demon, "悪魔");
-        });
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), 30.0),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.add_space((ui.available_width() / 2.0 - 100.0).max(0.0));
+
+                    ui.selectable_value(&mut self.race, Race::Human, "人間");
+                    ui.selectable_value(&mut self.race, Race::Elf, "エルフ");
+                    ui.selectable_value(&mut self.race, Race::Beast, "獣人");
+                    ui.selectable_value(&mut self.race, Race::Demon, "悪魔");
+                });
+            },
+        );
 
         //性別の選択
         ui.label("性別");
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.gender, Gender::Male, "男性");
-            ui.selectable_value(&mut self.gender, Gender::Female, "女性");
-            ui.selectable_value(&mut self.gender, Gender::Other, "その他");
-        });
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), 30.0),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.add_space((ui.available_width() / 2.0 - 100.0).max(0.0));
+                    ui.selectable_value(&mut self.gender, Gender::Male, "男性");
+                    ui.selectable_value(&mut self.gender, Gender::Female, "女性");
+                    ui.selectable_value(&mut self.gender, Gender::Other, "その他");
+                });
+            },
+        );
 
         //ストーリーの入力
         ui.label("ストーリー");
@@ -148,12 +177,19 @@ impl CharacterApp {
         ui.label("威力");
         ui.text_edit_singleline(&mut self.ability_power);
         ui.label("能力タイプ");
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.ability_type, AbilityType::Attack, "攻撃");
-            ui.selectable_value(&mut self.ability_type, AbilityType::Heal, "回復");
-            ui.selectable_value(&mut self.ability_type, AbilityType::Buff, "バフ");
-            ui.selectable_value(&mut self.ability_type, AbilityType::Debuff, "デバフ");
-        });
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), 30.0),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.add_space((ui.available_width() / 2.0 - 100.0).max(0.0));
+                    ui.selectable_value(&mut self.ability_type, AbilityType::Attack, "攻撃");
+                    ui.selectable_value(&mut self.ability_type, AbilityType::Heal, "回復");
+                    ui.selectable_value(&mut self.ability_type, AbilityType::Buff, "バフ");
+                    ui.selectable_value(&mut self.ability_type, AbilityType::Debuff, "デバフ");
+                });
+            },
+        );
         ui.label("消費MP");
         ui.text_edit_singleline(&mut self.ability_mp);
 
@@ -262,32 +298,120 @@ impl CharacterApp {
         ui.heading("登録済みキャラクター");
 
         for character in self.store.search_by_name(&self.search_name) {
-            egui::Frame::group(ui.style()).show(ui, |ui| {
-                let age_text = match character.age {
-                    Some(age) => format!("年齢：{}歳", age),
-                    None => "年齢不詳".to_string(),
-                };
+            egui::Frame::new()
+                //カードの背景色を指定
+                .fill(egui::Color32::from_rgb(208, 215, 253))
+                //カードの内側に余白を作る
+                .inner_margin(egui::Margin::same(16))
+                //カードの角を丸くする
+                .corner_radius(egui::CornerRadius::same(20))
+                //カードの輪郭線をつける
+                .stroke(egui::Stroke::new(
+                    3.0,
+                    egui::Color32::from_rgb(174, 154, 255),
+                ))
+                .show(ui, |ui| {
 
-                ui.heading(format!("名前：{}", character.name));
-                ui.horizontal(|ui| {
-                    ui.label(age_text);
-                    ui.label(format!("種族：{}", character.race));
-                    ui.label(format!("性別：{}", character.gender));
+                    let age_text = match character.age {
+                        Some(age) => format!("年齢：{}歳", age),
+                        None => "年齢不詳".to_string(),
+                    };
+                    egui::Frame::new()
+                        .fill(egui::Color32::WHITE)
+                        .inner_margin(egui::Margin::same(10))
+                        .corner_radius(egui::CornerRadius::same(10))
+                        .show(ui,|ui|{
+                            ui.heading(&character.name);
+                        });
+
+                    ui.separator();
+                    ui.allocate_ui_with_layout(
+                        egui::vec2(ui.available_width(), 30.0),
+                        egui::Layout::left_to_right(egui::Align::Center),
+                        |ui| {
+                            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                                ui.add_space((ui.available_width() / 2.0 - 100.0).max(0.0));
+                                ui.label(age_text);
+                                ui.label(format!("種族：{}", character.race));
+                                ui.label(format!("性別：{}", character.gender));
+                            });
+                        },
+                    );
+
+                    ui.label(format!("ストーリー：{}", character.story));
+                    ui.add_space(10.0);
+
+                    ui.separator();
+
+                    egui::Frame::new()
+                        // 能力欄の背景色：薄い紫
+                        .fill(egui::Color32::from_rgb(240, 235, 255))
+                        // 能力欄の内側の余白
+                        .inner_margin(egui::Margin::same(12))
+                        // 角を丸くする
+                        .corner_radius(egui::CornerRadius::same(8))
+                        // 枠線
+                        .stroke(egui::Stroke::new(
+                            1.0,
+                            egui::Color32::from_rgb(190, 175, 235),
+                        ))
+                        .show(ui, |ui| {
+                            ui.label("能力一覧");
+
+                            for ability in &character.abilities {
+                                let rgb_color = match ability.ability_type {
+                                    AbilityType::Attack => egui::Color32::from_rgb(255, 104, 102),
+                                    AbilityType::Heal => egui::Color32::from_rgb(95, 255, 138),
+                                    AbilityType::Buff => egui::Color32::from_rgb(255, 159, 52),
+                                    AbilityType::Debuff => egui::Color32::from_rgb(100, 100, 255),
+                                };
+
+                                egui::Frame::new()
+                                    .fill(egui::Color32::WHITE)
+                                    .inner_margin(egui::Margin::same(10))
+                                    .corner_radius(egui::CornerRadius::same(10))
+                                    .stroke(egui::Stroke::new(2.0,rgb_color))
+                                    .show(ui,|ui|{
+                                        ui.heading(format!("< {} >", ability.name));
+                                        ui.allocate_ui_with_layout(
+                                            egui::vec2(ui.available_width(), 30.0),
+                                            egui::Layout::left_to_right(egui::Align::Center),
+                                            |ui| {
+                                                ui.with_layout(
+                                                    egui::Layout::left_to_right(egui::Align::Center),
+                                                    |ui| {
+                                                        ui.add_space((ui.available_width() / 2.0 - 100.0).max(0.0));
+                                                        egui::Frame::new()
+                                                            .fill(egui::Color32::from_rgb(196, 255, 236))
+                                                            .inner_margin(egui::Margin::same(10))
+                                                            .corner_radius(egui::CornerRadius::same(7))
+                                                            .show(ui,|ui|{
+                                                                ui.label(format!("威力：{}", ability.power));
+                                                            });
+                                                        egui::Frame::new()
+                                                            .fill(egui::Color32::from_rgb(255, 211, 210))
+                                                            .inner_margin(egui::Margin::same(10))
+                                                            .corner_radius(egui::CornerRadius::same(7))
+                                                            .show(ui,|ui|{
+                                                                ui.label(format!("タイプ：{}", ability.ability_type));
+                                                            });
+                                                        egui::Frame::new()
+                                                            .fill(egui::Color32::from_rgb(192, 231, 255))
+                                                            .inner_margin(egui::Margin::same(10))
+                                                            .corner_radius(egui::CornerRadius::same(7))
+                                                            .show(ui,|ui|{
+                                                                ui.label(format!("消費MP：{}", ability.cost_mp));
+                                                            });
+                                                    },
+                                                );
+                                            },
+                                        );
+                                    });
+                                ui.add_space(10.0);
+                            }
+                        });
                 });
-                ui.label(format!("ストーリー：{}", character.story));
-                ui.add_space(10.0);
-
-                ui.label("能力一覧");
-                for ability in &character.abilities {
-                    ui.strong(format!("能力名：{}", ability.name));
-                    ui.horizontal(|ui| {
-                        ui.label(format!("威力：{}", ability.power));
-                        ui.label(format!("タイプ：{}", ability.ability_type));
-                        ui.label(format!("消費MP：{}", ability.cost_mp));
-                    });
-                    ui.add_space(5.0);
-                }
-            });
+            ui.add_space(20.0);
         }
 
         if self.store.search_by_name(&self.search_name).is_empty() {
@@ -307,19 +431,35 @@ impl CharacterApp {
         ui.text_edit_singleline(&mut self.edit_age);
         //種族
         ui.label("種族");
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.edit_race, Race::Human, "人間");
-            ui.selectable_value(&mut self.edit_race, Race::Elf, "エルフ");
-            ui.selectable_value(&mut self.edit_race, Race::Beast, "獣人");
-            ui.selectable_value(&mut self.edit_race, Race::Demon, "悪魔");
-        });
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), 30.0),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.add_space((ui.available_width() / 2.0 - 100.0).max(0.0));
+                    ui.selectable_value(&mut self.edit_race, Race::Human, "人間");
+                    ui.selectable_value(&mut self.edit_race, Race::Elf, "エルフ");
+                    ui.selectable_value(&mut self.edit_race, Race::Beast, "獣人");
+                    ui.selectable_value(&mut self.edit_race, Race::Demon, "悪魔");
+                });
+            },
+        );
         //性別の選択
         ui.label("性別");
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.edit_gender, Gender::Male, "男性");
-            ui.selectable_value(&mut self.edit_gender, Gender::Female, "女性");
-            ui.selectable_value(&mut self.edit_gender, Gender::Other, "その他");
-        });
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), 30.0),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.add_space((ui.available_width() / 2.0 - 100.0).max(0.0));
+                    ui.horizontal_centered(|ui| {
+                        ui.selectable_value(&mut self.edit_gender, Gender::Male, "男性");
+                        ui.selectable_value(&mut self.edit_gender, Gender::Female, "女性");
+                        ui.selectable_value(&mut self.edit_gender, Gender::Other, "その他");
+                    });
+                })
+            },
+        );
         ui.label("ストーリー");
         ui.text_edit_multiline(&mut self.edit_story);
 
@@ -377,12 +517,19 @@ impl CharacterApp {
         ui.label("威力を入力");
         ui.text_edit_singleline(&mut self.add_ability_power);
         ui.label("能力タイプを入力");
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.add_ability_type, AbilityType::Attack, "攻撃");
-            ui.selectable_value(&mut self.add_ability_type, AbilityType::Heal, "回復");
-            ui.selectable_value(&mut self.add_ability_type, AbilityType::Buff, "バフ");
-            ui.selectable_value(&mut self.add_ability_type, AbilityType::Debuff, "デバフ");
-        });
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), 30.0),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.add_space((ui.available_width() / 2.0 - 100.0).max(0.0));
+                    ui.selectable_value(&mut self.add_ability_type, AbilityType::Attack, "攻撃");
+                    ui.selectable_value(&mut self.add_ability_type, AbilityType::Heal, "回復");
+                    ui.selectable_value(&mut self.add_ability_type, AbilityType::Buff, "バフ");
+                    ui.selectable_value(&mut self.add_ability_type, AbilityType::Debuff, "デバフ");
+                });
+            },
+        );
         ui.label("消費MPを入力");
         ui.text_edit_singleline(&mut self.add_ability_mp);
 
@@ -499,68 +646,138 @@ impl eframe::App for CharacterApp {
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    ui.heading("オリジナルキャラクター図鑑");
+                    ui.vertical_centered(|ui| {
+                        ui.set_max_width(800.0);
 
-                    //区切り線で区切る
-                    ui.separator();
-                    //キャラクター検索欄
-                    ui.label("名前で検索");
-                    ui.text_edit_singleline(&mut self.search_name);
-                    //区切り線で区切る
-                    ui.separator();
+                        // ここに現在の画面全体のUIを置く
+                        ui.heading("オリジナルキャラクター図鑑");
 
-                    //登録機能
-                    self.show_registration_ui(ui);
-
-                    // 能力の追加機能
-                    ui.separator();
-                    ui.heading("既存キャラクターの編集");
-
-                    for character in self.store.get_all() {
                         ui.horizontal(|ui| {
-                            let changed = ui.selectable_value(
-                                &mut self.select_character,
-                                Some(character.id),
-                                format!("名前：{}", character.name),
-                            );
+                            for (tab,label) in [
+                                (AppTab::Encyclopedia, "図鑑"),
+                                (AppTab::Register, "新規登録"),
+                                (AppTab::Manage, "キャラ管理"),
+                            ]{
+                                //今開いているタブかどうかを判定する
+                                let selected = self.active_tab == tab;
 
-                            //削除ボタンが押されたキャラクターを削除する
-                            if ui.button("削除").clicked() {
-                                self.display_confirm = true;
-                                self.delete_character_id = Some(character.id);
-                            }
+                                //背景色を指定する
+                                let fill = if selected {
+                                    egui::Color32::from_rgb(220, 235, 250)
+                                }else{
+                                    egui::Color32::from_rgb(245, 247, 250)
+                                };
 
-                            if changed.changed() {
-                                // 選択したキャラクターの情報をself.edit_name などにコピーする
-                                if let Some(id) = self.select_character {
-                                    match self.store.find(id) {
-                                        Some(character) => {
-                                            self.edit_name = character.name.clone();
-                                            self.edit_age = match character.age {
-                                                Some(age) => age.to_string(),
-                                                None => String::new(),
-                                            };
-                                            self.edit_gender = character.gender.clone();
-                                            self.edit_race = character.race.clone();
-                                            self.edit_story = character.story.clone();
-                                        }
-                                        None => {
-                                            ui.label("キャラクターが見つかりません");
-                                        }
+                                //frameという変数に背景，余白，角の丸みなどの見た目の情報を格納する
+                                let frame = egui::Frame::new()
+                                    .fill(fill)
+                                    .inner_margin(egui::Margin::symmetric(16,10))
+                                    .corner_radius(egui::CornerRadius::same(8));
+
+                                //active_tabにframeを適用させる
+                                frame.show(ui,|ui|{
+
+                                    //クリック時のタブの切り替え
+                                    if ui
+                                        .selectable_value(&mut self.active_tab,tab,label)
+                                        .changed()
+                                    {
+                                        // タブの選択状態は selectable_value が更新する
                                     }
-                                }
+                                });
                             }
+                            
                         });
-                    }
 
-                    //編集機能
-                    self.show_character_edit_ui(ui);
+                        match self.active_tab {
+                            AppTab::Encyclopedia => {
+                                //区切り線で区切る
+                                ui.separator();
+                                //キャラクター検索欄
+                                egui::Frame::new()
+                                    .fill(egui::Color32::from_rgb(213, 243, 255))
+                                    .inner_margin(egui::Margin::same(10))
+                                    .corner_radius(egui::CornerRadius::same(6))
+                                    .show(ui,|ui|{
+                                        ui.label("名前で検索");
+                                        ui.text_edit_singleline(&mut self.search_name);
+                                    });
+                                //区切り線で区切る
+                                ui.separator();
 
-                    //能力の追加
-                    self.show_ability_add_ui(ui);
+                                //キャラクターの表示機能
+                                self.show_character_list(ui);
+                            },
+                            AppTab::Register => {
+                                //登録機能
+                                self.show_registration_ui(ui);
+                            }
+                            AppTab::Manage => {
+                                ui.separator();
+                                ui.heading("既存キャラクターの編集");
+                                ui.separator();
 
-                    //キャラクターの表示機能
-                    self.show_character_list(ui);
+                                for character in self.store.get_all() {
+                                    ui.allocate_ui_with_layout(
+                                        egui::vec2(ui.available_width(), 30.0),
+                                        egui::Layout::left_to_right(egui::Align::Center),
+                                        |ui| {
+                                            ui.with_layout(
+                                                egui::Layout::left_to_right(egui::Align::Center),
+                                                |ui| {
+                                                    ui.add_space(
+                                                        (ui.available_width() / 2.0 - 100.0).max(0.0),
+                                                    );
+                                                    let changed = ui.selectable_value(
+                                                        &mut self.select_character,
+                                                        Some(character.id),
+                                                        format!("{}", character.name),
+                                                    );
+
+                                                    //削除ボタンが押されたキャラクターを削除する
+                                                    if ui.button("削除").clicked() {
+                                                        self.display_confirm = true;
+                                                        self.delete_character_id = Some(character.id);
+                                                    }
+
+                                                    if changed.changed() {
+                                                        // 選択したキャラクターの情報をself.edit_name などにコピーする
+                                                        if let Some(id) = self.select_character {
+                                                            match self.store.find(id) {
+                                                                Some(character) => {
+                                                                    self.edit_name = character.name.clone();
+                                                                    self.edit_age = match character.age {
+                                                                        Some(age) => age.to_string(),
+                                                                        None => String::new(),
+                                                                    };
+                                                                    self.edit_gender =
+                                                                        character.gender.clone();
+                                                                    self.edit_race = character.race.clone();
+                                                                    self.edit_story =
+                                                                        character.story.clone();
+                                                                }
+                                                                None => {
+                                                                    ui.label(
+                                                                        "キャラクターが見つかりません",
+                                                                    );
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        },
+                                    );
+                                }
+
+                                //編集機能
+                                self.show_character_edit_ui(ui);
+
+                                //能力の追加
+                                self.show_ability_add_ui(ui);
+                            }
+                        }             
+                    });
                 });
 
             //削除確認機能
