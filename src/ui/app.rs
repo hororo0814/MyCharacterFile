@@ -465,7 +465,7 @@ impl CharacterApp {
         }
 
         //削除確認が真のとき，ウィンドウを閉じて削除処理を行う
-        if confirm_delete == true {
+        if confirm_delete {
             //IDが見つかればウィンドウを閉じる
             if let Some(id) = self.delete_character_id {
                 self.display_confirm = false;
