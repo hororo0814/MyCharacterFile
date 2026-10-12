@@ -31,6 +31,10 @@ pub struct CharacterApp {
     edit_race: Race,
     edit_gender: Gender,
     edit_story: String,
+    //確認画面を表示するかどうかを保持する
+    display_confirm:bool,
+    //削除予定のキャラクターIDを保持
+    delete_character_id:Option<CharacterId>,
 }
 
 impl CharacterApp {
@@ -73,6 +77,8 @@ impl CharacterApp {
         let blank_edit_race = Race::Human;
         let blank_edit_gender = Gender::Male;
         let blank_edit_story = String::new();
+        let first_display_confirm=false;
+        let first_delete_confirm:Option<CharacterId> = None;
 
         //キャラクターを返す
         Self {
@@ -97,6 +103,8 @@ impl CharacterApp {
             edit_gender: blank_edit_gender,
             edit_race: blank_edit_race,
             edit_story: blank_edit_story,
+            display_confirm:first_display_confirm,
+            delete_character_id:first_delete_confirm,
         }
     }
 }
@@ -169,9 +177,6 @@ impl eframe::App for CharacterApp {
                     ui.separator();
                     ui.heading("既存キャラクターの編集");
 
-                    //削除対象を保持する変数
-                    let mut remove_target_id = None;
-
                     for character in self.store.get_all() {
                         ui.horizontal(|ui| {
                             let changed = ui.selectable_value(
@@ -182,7 +187,8 @@ impl eframe::App for CharacterApp {
 
                             //削除ボタンが押されたキャラクターを削除する
                             if ui.button("削除").clicked() {
-                                remove_target_id = Some(character.id);
+                                self.display_confirm = true;
+                                self.delete_character_id = Some(character.id);                                
                             }
 
                             if changed.changed() {
@@ -212,25 +218,7 @@ impl eframe::App for CharacterApp {
                     }
 
                     //削除処理
-                    if let Some(id) = remove_target_id {
-                        match self.store.remove(id) {
-                            Some(character) => {
-                                match save_store(&self.store) {
-                                    Ok(()) => {
-                                        ui.label(format!("キャラクター{}を削除しました",character.name));
-                                        self.select_character = None;
-                                        self.edit_name.clear();
-                                        self.edit_age.clear();
-                                        self.edit_story.clear();
-                                    },
-                                    Err(error) => {
-                                        ui.label(format!("保存エラー: {}",error));
-                                    },
-                                }
-                            },
-                            None => {ui.label("正常に削除できませんでした");},
-                        }
-                    }
+                    
 
                     //編集フォームの表示
                     ui.separator();
@@ -509,6 +497,62 @@ impl eframe::App for CharacterApp {
                         ui.label("対象のキャラクターが見つかりません");
                     }
                 });
-        });
+        
+            //削除をするかどうかの最終確認
+            let mut confirm_delete = false;
+            let mut cancel_confirm = false;
+
+            //display_confirmがtrueのときにウィンドウを表示する
+            egui::Window::new("削除確認")
+                .open(&mut self.display_confirm)
+                .show(ui, |ui| {
+
+                    // 確認メッセージとボタン
+                    ui.label("本当に削除しますか？");
+
+                    if ui.button("削除する").clicked() {
+                            confirm_delete = true;
+                    }
+
+                    if ui.button("キャンセル").clicked() {
+                        cancel_confirm = true;
+                    }
+
+                });
+
+                //キャンセル確認が真のとき，削除ウィンドウを消して偽にする
+                if cancel_confirm {
+                    self.display_confirm = false;
+                    self.delete_character_id = None;
+                }
+
+                //削除確認が真のとき，ウィンドウを閉じて削除処理を行う
+                if confirm_delete == true {
+
+                    //IDが見つかればウィンドウを閉じる
+                    if let Some(id) = self.delete_character_id {
+                        self.display_confirm = false;
+
+                        //削除処理
+                        match self.store.remove(id) {
+                            Some(character) => {
+                                match save_store(&self.store) {
+                                    Ok(()) => {
+                                        ui.label(format!("キャラクター{}を削除しました",character.name));
+                                        self.select_character = None;
+                                        self.edit_name.clear();
+                                        self.edit_age.clear();
+                                        self.edit_story.clear();
+                                    },
+                                    Err(error) => {
+                                        ui.label(format!("保存エラー: {}",error));
+                                    },
+                                }
+                            },
+                            None => {ui.label("正常に削除できませんでした");},
+                        }
+                    }
+                }
+            });       
     }
 }
