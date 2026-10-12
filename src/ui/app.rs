@@ -327,26 +327,33 @@ impl eframe::App for CharacterApp {
                     ui.heading("登録済みキャラクター");
 
                     for character in self.store.search_by_name(&self.search_name) {
-                        let age_text = match character.age {
-                            Some(age) => format!("年齢：{}歳", age),
-                            None => "年齢不詳".to_string(),
-                        };
+                        egui::Frame::group(ui.style()).show(ui, |ui| {
+                            let age_text = match character.age {
+                                Some(age) => format!("年齢：{}歳", age),
+                                None => "年齢不詳".to_string(),
+                            };
 
-                        ui.label(format!("名前：{}", character.name));
-                        ui.label(age_text);
-                        ui.label(format!("種族：{}", character.race));
-                        ui.label(format!("性別：{}", character.gender));
-                        ui.label(format!("ストーリー：{}", character.story));
+                            ui.heading(format!("名前：{}", character.name));
+                            ui.horizontal(|ui| {
+                                ui.label(age_text);
+                                ui.label(format!("種族：{}", character.race));
+                                ui.label(format!("性別：{}", character.gender));
+                            });
+                            ui.label(format!("ストーリー：{}", character.story));
+                            ui.add_space(10.0);
 
-                        for ability in &character.abilities {
-                            ui.label(format!("能力名：{}", ability.name));
-                            ui.label(format!("威力：{}", ability.power));
-                            ui.label(format!("タイプ：{}", ability.ability_type));
-                            ui.label(format!("消費MP：{}", ability.cost_mp));
-                        }
+                            ui.heading("能力一覧");
+                            for ability in &character.abilities {
+                                ui.strong(format!("能力名：{}", ability.name));
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("威力：{}", ability.power));
+                                    ui.label(format!("タイプ：{}", ability.ability_type));
+                                    ui.label(format!("消費MP：{}", ability.cost_mp));
+                                });
+                                ui.add_space(5.0);
+                            }
 
-                        ui.separator();
-                        
+                        });
                     }
 
                     if self.store.search_by_name(&self.search_name).is_empty() {
