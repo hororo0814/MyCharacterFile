@@ -82,6 +82,14 @@ impl CharacterStore {
             })
             .collect()
     }
+
+    //名前検索用のメソッド
+    pub fn search_by_name(&self, name: &str) -> Vec<&Character> {
+        self.characters
+            .iter()
+            .filter(|character| character.name.contains(name))
+            .collect()
+    }
 }
 
 impl<'a> IntoIterator for &'a CharacterStore {
@@ -527,5 +535,95 @@ mod test {
         let _ = store.add(character1);
         store.find_mut(CharacterId(1)).unwrap().age = None;
         assert_eq!(store.find(CharacterId(1)).unwrap().age, None);
+    }
+
+    #[test]
+    //単に検索結果の件数を確認するテスト
+    fn search_by_name_number_test() {
+        let mut store = CharacterStore::new();
+
+        //テスト用の能力を宣言
+        let ability1 = Ability::new("フレア".to_string(), 50, AbilityType::Attack, 20);
+
+        //テスト用(Race:Human)キャラクターの宣言
+        let character1 = Character::new(
+            CharacterId(1),
+            "亜紀".to_string(),
+            Some(17),
+            Race::Human,
+            Gender::Male,
+            vec![ability1],
+            "由紀とともに旅をする".to_string(),
+        );
+        let _ = store.add(character1);
+        let target_number = store.search_by_name("亜").len();
+        assert_eq!(target_number, 1);
+    }
+
+    #[test]
+    //テスト対象のキャラクターが必ず見つかる前提で検索結果の中身を確認するテスト
+    fn search_by_name_test() {
+        let mut store = CharacterStore::new();
+
+        //テスト用の能力を宣言
+        let ability1 = Ability::new("フレア".to_string(), 50, AbilityType::Attack, 20);
+
+        //テスト用(Race:Human)キャラクターの宣言
+        let character1 = Character::new(
+            CharacterId(1),
+            "亜紀".to_string(),
+            Some(17),
+            Race::Human,
+            Gender::Male,
+            vec![ability1],
+            "由紀とともに旅をする".to_string(),
+        );
+        let _ = store.add(character1);
+        let target_number = store.search_by_name("亜")[0];
+        assert_eq!(target_number.id, CharacterId(1));
+    }
+
+    #[test]
+    fn search_by_name_none_test() {
+        let mut store = CharacterStore::new();
+
+        //テスト用の能力を宣言
+        let ability1 = Ability::new("フレア".to_string(), 50, AbilityType::Attack, 20);
+
+        //テスト用(Race:Human)キャラクターの宣言
+        let character1 = Character::new(
+            CharacterId(1),
+            "亜紀".to_string(),
+            Some(17),
+            Race::Human,
+            Gender::Male,
+            vec![ability1],
+            "由紀とともに旅をする".to_string(),
+        );
+        let _ = store.add(character1);
+        let target_number = store.search_by_name("由").len();
+        assert_eq!(target_number, 0);
+    }
+
+    #[test]
+    fn search_by_name_all_test() {
+        let mut store = CharacterStore::new();
+
+        //テスト用の能力を宣言
+        let ability1 = Ability::new("フレア".to_string(), 50, AbilityType::Attack, 20);
+
+        //テスト用(Race:Human)キャラクターの宣言
+        let character1 = Character::new(
+            CharacterId(1),
+            "亜紀".to_string(),
+            Some(17),
+            Race::Human,
+            Gender::Male,
+            vec![ability1],
+            "由紀とともに旅をする".to_string(),
+        );
+        let _ = store.add(character1);
+        let target_number = store.search_by_name("").len();
+        assert_eq!(target_number, store.characters.len());
     }
 }
