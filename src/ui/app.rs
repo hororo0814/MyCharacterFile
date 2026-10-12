@@ -1,5 +1,5 @@
 use crate::domain::ability::{Ability, AbilityType};
-use crate::domain::character::{Character, CharacterId, Gender, Race};
+use crate::domain::character::{ Character, CharacterId, Gender, Race};
 use crate::repository::character_file::save_store;
 use crate::repository::character_store::CharacterStore;
 use eframe::egui;
@@ -169,36 +169,69 @@ impl eframe::App for CharacterApp {
                     ui.separator();
                     ui.heading("既存キャラクターの編集");
 
+                    //削除対象を保持する変数
+                    let mut remove_target_id = None;
+
                     for character in self.store.get_all() {
-                        let changed = ui.selectable_value(
-                            &mut self.select_character,
-                            Some(character.id),
-                            format!("名前：{}", character.name),
-                        );
+                        ui.horizontal(|ui| {
+                            let changed = ui.selectable_value(
+                                &mut self.select_character,
+                                Some(character.id),
+                                format!("名前：{}", character.name),
+                            );
 
-                        if changed.changed() {
-                            // 選択したキャラクターの情報をself.edit_name などにコピーする
-                            if let Some(id) = self.select_character {
+                            //削除ボタンが押されたキャラクターを削除する
+                            if ui.button("削除").clicked() {
+                                remove_target_id = Some(character.id);
+                            }
 
-                                match self.store.find(id) {
-                                    Some(character) =>{
+                            if changed.changed() {
+                                // 選択したキャラクターの情報をself.edit_name などにコピーする
+                                if let Some(id) = self.select_character {
 
-                                        self.edit_name =character.name.clone();
-                                        self.edit_age = match character.age {
-                                            Some(age) => age.to_string(),
-                                            None => String::new(),
-                                        };
-                                        self.edit_gender =character.gender.clone();
-                                        self.edit_race =character.race.clone();
-                                        self.edit_story =character.story.clone();
-                                    }
-                                    None => {
-                                        ui.label("キャラクターが見つかりません");
+                                    match self.store.find(id) {
+                                        Some(character) =>{
+
+                                            self.edit_name =character.name.clone();
+                                            self.edit_age = match character.age {
+                                                Some(age) => age.to_string(),
+                                                None => String::new(),
+                                            };
+                                            self.edit_gender =character.gender.clone();
+                                            self.edit_race =character.race.clone();
+                                            self.edit_story =character.story.clone();
+                                        }
+                                        None => {
+                                            ui.label("キャラクターが見つかりません");
+                                        }
                                     }
                                 }
                             }
+                        });
+
+                    }
+
+                    //削除処理
+                    if let Some(id) = remove_target_id {
+                        match self.store.remove(id) {
+                            Some(character) => {
+                                match save_store(&self.store) {
+                                    Ok(()) => {
+                                        ui.label(format!("キャラクター{}を削除しました",character.name));
+                                        self.select_character = None;
+                                        self.edit_name.clear();
+                                        self.edit_age.clear();
+                                        self.edit_story.clear();
+                                    },
+                                    Err(error) => {
+                                        ui.label(format!("保存エラー: {}",error));
+                                    },
+                                }
+                            },
+                            None => {ui.label("正常に削除できませんでした");},
                         }
                     }
+
                     //編集フォームの表示
                     ui.separator();
 
