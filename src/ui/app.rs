@@ -25,6 +25,12 @@ pub struct CharacterApp {
     add_ability_mp: String,
     //キャラクターの名前検索用の状態
     search_name: String,
+    // キャラクター編集用
+    edit_name: String,
+    edit_age: String,
+    edit_race: Race,
+    edit_gender: Gender,
+    edit_story: String,
 }
 
 impl CharacterApp {
@@ -62,6 +68,11 @@ impl CharacterApp {
         let blank_add_abi_type = AbilityType::Attack;
         let blank_add_abi_mp: String = String::new();
         let first_search_name: String = String::new();
+        let blank_edit_name = String::new();
+        let blank_edit_age = String::new();
+        let blank_edit_race = Race::Human;
+        let blank_edit_gender = Gender::Male;
+        let blank_edit_story = String::new();
 
         //キャラクターを返す
         Self {
@@ -81,6 +92,11 @@ impl CharacterApp {
             add_ability_type: blank_add_abi_type,
             add_ability_mp: blank_add_abi_mp,
             search_name: first_search_name,
+            edit_name: blank_edit_name,
+            edit_age: blank_edit_age,
+            edit_gender: blank_edit_gender,
+            edit_race: blank_edit_race,
+            edit_story: blank_edit_story,
         }
     }
 }
@@ -113,23 +129,25 @@ impl eframe::App for CharacterApp {
 
                     //種族の選択
                     ui.label("種族");
-                    ui.selectable_value(&mut self.race, Race::Human, "人間");
-                    ui.selectable_value(&mut self.race, Race::Elf, "エルフ");
-                    ui.selectable_value(&mut self.race, Race::Beast, "獣人");
-                    ui.selectable_value(&mut self.race, Race::Demon, "悪魔");
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.race, Race::Human, "人間");
+                        ui.selectable_value(&mut self.race, Race::Elf, "エルフ");
+                        ui.selectable_value(&mut self.race, Race::Beast, "獣人");
+                        ui.selectable_value(&mut self.race, Race::Demon, "悪魔");
+                    });
 
                     //性別の選択
                     ui.label("性別");
-                    ui.selectable_value(&mut self.gender, Gender::Male, "男性");
-                    ui.selectable_value(&mut self.gender, Gender::Female, "女性");
-                    ui.selectable_value(&mut self.gender, Gender::Other, "その他");
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.gender, Gender::Male, "男性");
+                        ui.selectable_value(&mut self.gender, Gender::Female, "女性");
+                        ui.selectable_value(&mut self.gender, Gender::Other, "その他");
+                    });
 
                     //ストーリーの入力
                     ui.label("ストーリー");
-                    ui.text_edit_singleline(&mut self.story);
+                    ui.text_edit_multiline(&mut self.story);
 
-                    //区切り線で区切る
-                    ui.separator();
 
                     //能力の入力
                     ui.label("所持している能力の設定を行います");
@@ -138,34 +156,132 @@ impl eframe::App for CharacterApp {
                     ui.label("威力");
                     ui.text_edit_singleline(&mut self.ability_power);
                     ui.label("能力タイプ");
-                    ui.selectable_value(&mut self.ability_type, AbilityType::Attack, "攻撃");
-                    ui.selectable_value(&mut self.ability_type, AbilityType::Heal, "回復");
-                    ui.selectable_value(&mut self.ability_type, AbilityType::Buff, "バフ");
-                    ui.selectable_value(&mut self.ability_type, AbilityType::Debuff, "デバフ");
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.ability_type, AbilityType::Attack, "攻撃");
+                        ui.selectable_value(&mut self.ability_type, AbilityType::Heal, "回復");
+                        ui.selectable_value(&mut self.ability_type, AbilityType::Buff, "バフ");
+                        ui.selectable_value(&mut self.ability_type, AbilityType::Debuff, "デバフ");
+                    });
                     ui.label("消費MP");
                     ui.text_edit_singleline(&mut self.ability_mp);
 
                     // 能力の追加機能
                     ui.separator();
-                    ui.heading("既存キャラクターへの能力追加");
+                    ui.heading("既存キャラクターの編集");
 
                     for character in self.store.get_all() {
-                        ui.selectable_value(
+                        let changed = ui.selectable_value(
                             &mut self.select_character,
                             Some(character.id),
                             format!("名前：{}", character.name),
                         );
+
+                        if changed.changed() {
+                            // 選択したキャラクターの情報をself.edit_name などにコピーする
+                            if let Some(id) = self.select_character {
+
+                                match self.store.find(id) {
+                                    Some(character) =>{
+
+                                        self.edit_name =character.name.clone();
+                                        self.edit_age = match character.age {
+                                            Some(age) => age.to_string(),
+                                            None => String::new(),
+                                        };
+                                        self.edit_gender =character.gender.clone();
+                                        self.edit_race =character.race.clone();
+                                        self.edit_story =character.story.clone();
+                                    }
+                                    None => {
+                                        ui.label("キャラクターが見つかりません");
+                                    }
+                                }
+                            }
+                        }
                     }
-                    ui.label("能力の追加を行います");
+                    //編集フォームの表示
+                    ui.separator();
+
+                    ui.label("名前");
+                    ui.text_edit_singleline(&mut self.edit_name);
+
+                    ui.label("年齢");
+                    ui.text_edit_singleline(&mut self.edit_age);
+                    //種族
+                    ui.label("種族");
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.edit_race, Race::Human, "人間");
+                        ui.selectable_value(&mut self.edit_race,  Race::Elf, "エルフ");
+                        ui.selectable_value(&mut self.edit_race, Race::Beast, "獣人");
+                        ui.selectable_value(&mut self.edit_race, Race::Demon, "悪魔");
+                    });
+                    //性別の選択
+                    ui.label("性別");
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.edit_gender, Gender::Male, "男性");
+                        ui.selectable_value(&mut self.edit_gender, Gender::Female, "女性");
+                        ui.selectable_value(&mut self.edit_gender, Gender::Other, "その他");
+                    });
+                    ui.label("ストーリー");
+                    ui.text_edit_multiline(&mut self.edit_story);
+
+                    //編集後キャラクター保存ボタン
+                    if ui.button("編集").clicked() {
+                        if self.edit_name.is_empty() {
+                            ui.label("キャラクター名を空欄にすることはできません");
+                        }else if let Some(id) = self.select_character{
+                            let age_result: Result<Option<u32>, std::num::ParseIntError> =
+                            if self.edit_age.trim().is_empty() {
+                                Ok(None)
+                            } else {
+                                //年齢をOption<u32>に変換したものを返す
+                                self.edit_age.trim().parse::<u32>().map(Some)
+                            };
+                            if let Some(character) = self.store.find_mut(id) {
+                                // キャラクターの各フィールドを更新する
+                                character.name = self.edit_name.clone();
+                                match age_result {
+                                    Ok(age) => {
+                                        character.age = age;
+                                        character.race = self.edit_race.clone();
+                                        character.gender = self.edit_gender.clone();
+                                        character.story = self.edit_story.clone();
+
+                                        //データを保存する処理
+                                        match save_store(&self.store) {
+                                            Ok(()) => {
+                                                self.edit_name.clear();
+                                                self.edit_age.clear();
+                                                self.edit_story.clear();
+                                            }
+                                            Err(error) => {
+                                                ui.label(format!("保存エラー: {}",error));
+                                            }
+                                        }
+                                    }
+                                    Err(_) => {ui.label("年齢は半角英数字で入力してください");},
+                                }
+                                
+                            }
+                        }else{
+                            ui.label("キャラクターが選択されていません");
+                        }
+                    }
+
+
+                    //能力の追加
+                    ui.heading("能力の追加を行います");
                     ui.label("追加する能力の能力名を記入");
                     ui.text_edit_singleline(&mut self.add_ability_name);
                     ui.label("威力を入力");
                     ui.text_edit_singleline(&mut self.add_ability_power);
                     ui.label("能力タイプを入力");
-                    ui.selectable_value(&mut self.add_ability_type, AbilityType::Attack, "攻撃");
-                    ui.selectable_value(&mut self.add_ability_type, AbilityType::Heal, "回復");
-                    ui.selectable_value(&mut self.add_ability_type, AbilityType::Buff, "バフ");
-                    ui.selectable_value(&mut self.add_ability_type, AbilityType::Debuff, "デバフ");
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.add_ability_type, AbilityType::Attack, "攻撃");
+                        ui.selectable_value(&mut self.add_ability_type, AbilityType::Heal, "回復");
+                        ui.selectable_value(&mut self.add_ability_type, AbilityType::Buff, "バフ");
+                        ui.selectable_value(&mut self.add_ability_type, AbilityType::Debuff, "デバフ");
+                    });
                     ui.label("消費MPを入力");
                     ui.text_edit_singleline(&mut self.add_ability_mp);
 
@@ -342,7 +458,7 @@ impl eframe::App for CharacterApp {
                             ui.label(format!("ストーリー：{}", character.story));
                             ui.add_space(10.0);
 
-                            ui.heading("能力一覧");
+                            ui.label("能力一覧");
                             for ability in &character.abilities {
                                 ui.strong(format!("能力名：{}", ability.name));
                                 ui.horizontal(|ui| {
