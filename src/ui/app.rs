@@ -23,6 +23,8 @@ pub struct CharacterApp {
     add_ability_power: String,
     add_ability_type: AbilityType,
     add_ability_mp: String,
+    //キャラクターの名前検索用の状態
+    search_name: String,
 }
 
 impl CharacterApp {
@@ -59,6 +61,7 @@ impl CharacterApp {
         let blank_add_abi_power: String = String::new();
         let blank_add_abi_type = AbilityType::Attack;
         let blank_add_abi_mp: String = String::new();
+        let first_search_name: String = String::new();
 
         //キャラクターを返す
         Self {
@@ -77,6 +80,7 @@ impl CharacterApp {
             add_ability_power: blank_add_abi_power,
             add_ability_type: blank_add_abi_type,
             add_ability_mp: blank_add_abi_mp,
+            search_name: first_search_name,
         }
     }
 }
@@ -88,6 +92,14 @@ impl eframe::App for CharacterApp {
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     ui.heading("オリジナルキャラクター図鑑");
+
+                    //区切り線で区切る
+                    ui.separator();
+                    //キャラクター検索欄
+                    ui.label("名前で検索");
+                    ui.text_edit_singleline(&mut self.search_name);
+                    //区切り線で区切る
+                    ui.separator();
 
                     //キャラクター新規登録
                     //名前の入力
@@ -314,7 +326,7 @@ impl eframe::App for CharacterApp {
                     ui.separator();
                     ui.heading("登録済みキャラクター");
 
-                    for character in self.store.get_all() {
+                    for character in self.store.search_by_name(&self.search_name) {
                         let age_text = match character.age {
                             Some(age) => format!("年齢：{}歳", age),
                             None => "年齢不詳".to_string(),
@@ -334,6 +346,11 @@ impl eframe::App for CharacterApp {
                         }
 
                         ui.separator();
+                        
+                    }
+
+                    if self.store.search_by_name(&self.search_name).is_empty() {
+                        ui.label("対象のキャラクターが見つかりません");
                     }
                 });
         });
