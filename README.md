@@ -78,11 +78,10 @@ Rust は [公式サイト](https://www.rust-lang.org/tools/install) からイン
 ### 2. リポジトリを取得
 
 ```bash
-git clone <リポジトリのURL>
-cd <リポジトリのディレクトリ名>
+git clone https://github.com/hororo0814/MyCharacterFile.git
+cd https://github.com/hororo0814/MyCharacterFile.git
 ```
 
-`<リポジトリのURL>` は実際のGitHubリポジトリのURLに置き換えてください。
 
 ### 3. アプリを起動
 
