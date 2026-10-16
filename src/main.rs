@@ -59,7 +59,7 @@ fn main() -> eframe::Result {
     let options = eframe::NativeOptions::default();
 
     eframe::run_native(
-        "ほろろのキャラクター大辞典",
+        "キャラクター図鑑",
         options,
         Box::new(|cc| Ok(Box::new(CharacterApp::new(cc, new_store)))),
     )
