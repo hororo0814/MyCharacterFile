@@ -2,7 +2,7 @@ use crate::domain::ability::{Ability, AbilityType};
 use crate::domain::character::{Character, CharacterId, Gender, Race};
 use crate::repository::character_file::save_store;
 use crate::repository::character_store::CharacterStore;
-use eframe::egui::{self, Stroke};
+use eframe::egui;
 
 #[derive(Clone, Copy, PartialEq)]
 enum AppTab {
@@ -46,9 +46,12 @@ pub struct CharacterApp {
     //削除予定のキャラクターIDを保持
     delete_character_id: Option<CharacterId>,
     active_tab: AppTab,
+    error_message: Option<String>,
 }
 
 impl CharacterApp {
+
+    
     pub fn new(cc: &eframe::CreationContext<'_>, store: CharacterStore) -> Self {
         let mut fonts = egui::FontDefinitions::default();
         let font_data = std::fs::read("C:\\Windows\\Fonts\\meiryo.ttc")
@@ -117,12 +120,26 @@ impl CharacterApp {
             display_confirm: first_display_confirm,
             delete_character_id: first_delete_confirm,
             active_tab: AppTab::Encyclopedia,
+            error_message: None,
         }
     }
 
     //新規キャラクター登録機能
     fn show_registration_ui(&mut self, ui: &mut egui::Ui) {
         //キャラクター新規登録
+        //不正文字
+        let invalid_chars = ['|', ',', ';'];
+
+        let has_invalid_char_name = invalid_chars
+            .iter()
+            .any(|&ch| self.name.contains(ch));
+        let has_invalid_char_story = invalid_chars
+            .iter()
+            .any(|&ch| self.story.contains(ch));
+        let has_invalid_char_abi_name = invalid_chars
+            .iter()
+            .any(|&ch| self.ability_name.contains(ch));
+
         //名前の入力
         ui.separator();
         ui.heading("新規キャラクター登録欄");
@@ -333,19 +350,28 @@ impl CharacterApp {
         // 登録ボタンが押されたときの処理
         if ui.add(regist_button).clicked() {
             if self.name.trim().is_empty() {
-                ui.label("名前を空欄にすることはできません");
+                // 名前が空欄の場合
+                self.error_message =
+                    Some("名前を空欄にすることはできません".to_string());
             } else if self.ability_name.trim().is_empty() {
-                ui.label("能力名を空欄にすることはできません");
+                // 能力名が空欄の場合
+                self.error_message =
+                    Some("能力名を空欄にすることはできません".to_string());
             } else {
-                // 年齢を Option<u32> に変換する
-                let age_result: Result<Option<u32>, std::num::ParseIntError> =
-                    if self.age.trim().is_empty() {
-                        Ok(None)
-                    } else {
-                        self.age.trim().parse::<u32>().map(Some)
-                    };
 
-                match age_result {
+                if has_invalid_char_name || has_invalid_char_story || has_invalid_char_abi_name {
+                    self.error_message = Some("'|', ',', ';'を入力に含めることはできません".to_string());
+                }else{
+                    //登録処理
+                    // 年齢を Option<u32> に変換する
+                    let age_result: Result<Option<u32>, std::num::ParseIntError> =
+                        if self.age.trim().is_empty() {
+                            Ok(None)
+                        } else {
+                            self.age.trim().parse::<u32>().map(Some)
+                        };
+
+                    match age_result {
                     Ok(s_age) => {
                         // 威力を u32 に変換する
                         match self.ability_power.trim().parse::<u32>() {
@@ -399,31 +425,40 @@ impl CharacterApp {
                                                         self.ability_mp.clear();
                                                     }
                                                     Err(error) => {
-                                                        ui.label(format!("保存エラー: {}", error));
+                                                        self.error_message = Some(format!("保存エラー: {}", error));
                                                     }
                                                 }
                                             }
                                             Err(error) => {
-                                                ui.label(format!("登録エラー: {}", error));
+                                                self.error_message = Some(format!("登録エラー: {}", error));
                                             }
                                         }
                                     }
                                     Err(_) => {
-                                        ui.label("消費MPは半角数字で入力してください");
+                                        self.error_message = Some("消費MPは半角数字で入力してください".to_string());
                                     }
                                 }
                             }
                             Err(_) => {
-                                ui.label("威力は半角数字で入力してください");
+                                self.error_message = Some("威力は半角数字で入力してください".to_string());
                             }
                         }
                     }
                     Err(_) => {
-                        ui.label("年齢は半角数字で入力してください");
+                        self.error_message = Some("年齢は半角数字で入力してください".to_string());
                     }
+                }
                 }
             }
         }
+
+        if let Some(message) = &self.error_message {
+            ui.colored_label(
+                egui::Color32::RED,
+                message,
+            );
+        }
+
     }
 
     //キャラクター一覧の表示機能
@@ -651,11 +686,26 @@ impl CharacterApp {
                     );
 
 
+                    //不正文字
+                    let invalid_chars = ['|', ',', ';'];
+
+                    let has_invalid_char_name = invalid_chars
+                        .iter()
+                        .any(|&ch| self.name.contains(ch));
+                    let has_invalid_char_story = invalid_chars
+                        .iter()
+                        .any(|&ch| self.story.contains(ch));
+
                     //編集後キャラクター保存ボタン
                     if ui.button("編集").clicked() {
+
             if self.edit_name.is_empty() {
-                ui.label("キャラクター名を空欄にすることはできません");
+                self.error_message =
+                    Some("能力名を空欄にすることはできません".to_string());
+            }else if has_invalid_char_name || has_invalid_char_story {
+                self.error_message = Some("'|', ',', ';'を入力に含めることはできません".to_string());          
             } else if let Some(id) = self.select_character {
+
                 let age_result: Result<Option<u32>, std::num::ParseIntError> =
                     if self.edit_age.trim().is_empty() {
                         Ok(None)
@@ -686,15 +736,23 @@ impl CharacterApp {
                             }
                         }
                         Err(_) => {
-                            ui.label("年齢は半角英数字で入力してください");
+                            self.error_message = Some("年齢は半角英数字で入力してください".to_string());
                         }
                     }
                 }
             } else {
-                ui.label("キャラクターが選択されていません");
+                self.error_message = Some("キャラクターが選択されていません".to_string());
             }
         }
     
+
+        if let Some(message) = &self.error_message {
+            ui.colored_label(
+                egui::Color32::RED,
+                message,
+            );
+        }
+
                 });      
     }
 
@@ -779,11 +837,19 @@ impl CharacterApp {
                         }
                     );
 
+                    let invalid_chars = ['|', ',', ';'];
+                    let has_invalid_char_abi_name = invalid_chars
+                        .iter()
+                        .any(|&ch| self.add_ability_name.contains(ch));
+
                     if ui.button("能力を追加").clicked() {
+
             if let Some(id) = self.select_character {
                 //能力名が空欄でないかチェックする
                 if self.add_ability_name.trim().is_empty() {
-                    ui.label("能力名を空欄にすることはできません");
+                    self.error_message = Some("能力名を空欄にすることはできません".to_string());
+                }else if has_invalid_char_abi_name {
+                    self.error_message = Some("'|', ',', ';'を入力に含めることはできません".to_string());
                 } else {
                     // 威力を u32 に変換する
                     match self.add_ability_power.trim().parse::<u32>() {
@@ -809,24 +875,31 @@ impl CharacterApp {
                                             }
                                             Err(_error) => {
                                                 // 保存エラーの表示
-                                                ui.label("正しく保存することができませんでした");
+                                                self.error_message = Some("正しく保存することができませんでした".to_string());
                                             }
                                         }
                                     }
                                 }
                                 Err(_) => {
-                                    ui.label("消費MPは半角数字で入力してください");
+                                    self.error_message = Some("消費MPは半角数字で入力してください".to_string());
                                 }
                             }
                         }
                         Err(_) => {
-                            ui.label("威力は半角数字で入力してください");
+                            self.error_message = Some("威力は半角数字で入力してください".to_string());
                         }
                     }
                 }
             } else {
-                ui.label("キャラクターが選択されていません");
+                self.error_message = Some("キャラクターが選択されていません".to_string());
             }
+        }
+
+        if let Some(message) = &self.error_message {
+            ui.colored_label(
+                egui::Color32::RED,
+                message,
+            );
         }
                 });
     
@@ -869,22 +942,30 @@ impl CharacterApp {
                 match self.store.remove(id) {
                     Some(character) => match save_store(&self.store) {
                         Ok(()) => {
-                            ui.label(format!("キャラクター{}を削除しました", character.name));
+                            self.error_message = Some(format!("キャラクター{}を削除しました", character.name));
                             self.select_character = None;
                             self.edit_name.clear();
                             self.edit_age.clear();
                             self.edit_story.clear();
                         }
                         Err(error) => {
-                            ui.label(format!("保存エラー: {}", error));
+                            self.error_message = Some(format!("保存エラー: {}", error));
                         }
                     },
                     None => {
-                        ui.label("正常に削除できませんでした");
+                        self.error_message = Some("正常に削除できませんでした".to_string());
                     }
                 }
             }
         }
+
+        if let Some(message) = &self.error_message {
+            ui.colored_label(
+                egui::Color32::RED,
+                message,
+            );
+        }
+
     }
 }
 
@@ -979,7 +1060,7 @@ impl eframe::App for CharacterApp {
                                                     let changed = ui.selectable_value(
                                                         &mut self.select_character,
                                                         Some(character.id),
-                                                        format!("{}", character.name),
+                                                        character.name.clone(),
                                                     );
 
                                                     //削除ボタンが押されたキャラクターを削除する
