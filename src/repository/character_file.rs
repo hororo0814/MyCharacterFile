@@ -1,10 +1,9 @@
-use crate::Race;
 use crate::domain::ability::{Ability, AbilityType};
 use directories::ProjectDirs;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::domain::character::{Character, CharacterId, Gender};
+use crate::domain::character::{Character, CharacterId, Gender, Race};
 use crate::repository::character_store::{CharacterStore, CharacterStoreErr};
 
 // データファイルの保存先を返す

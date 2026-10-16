@@ -1,34 +1,10 @@
 mod domain;
 mod repository;
 mod ui;
-use crate::domain::ability::{Ability, AbilityType};
 use crate::repository::character_file::data_file_path;
 use crate::repository::character_file::load_text;
-use crate::repository::character_file::save_store;
-use crate::repository::character_store::{CharacterStore, CharacterStoreErr};
-use domain::character::{Character, CharacterId, Gender, Race};
+use crate::repository::character_store::CharacterStore;
 use ui::app::CharacterApp;
-
-fn create_sample_store() -> Result<CharacterStore, CharacterStoreErr> {
-    //空のストアを作る
-    let mut store = CharacterStore::new();
-    //サンプルキャラクターを作る
-    let ability1 = Ability::new("フレア".to_string(), 50, AbilityType::Attack, 20);
-    let character = Character::new(
-        CharacterId(1),
-        "亜紀".to_string(),
-        Some(17),
-        Race::Human,
-        Gender::Male,
-        vec![ability1],
-        "由紀とともに旅をする".to_string(),
-    );
-    //store.add(character) で登録する
-    store.add(character)?;
-    //save_store(&store) で保存する
-    save_store(&store)?;
-    Ok(store)
-}
 
 fn main() -> eframe::Result {
     let file_path = match data_file_path() {
@@ -51,14 +27,7 @@ fn main() -> eframe::Result {
             }
         }
     } else {
-        //ファイルが存在しない場合だけサンプルデータを作る
-        match create_sample_store() {
-            Ok(store) => store,
-            Err(error) => {
-                eprintln!("サンプルデータの作成エラー: {error}");
-                return Err(eframe::Error::AppCreation(Box::new(error)));
-            }
-        }
+        CharacterStore::new()
     };
 
     let options = eframe::NativeOptions::default();

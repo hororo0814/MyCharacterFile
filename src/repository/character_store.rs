@@ -127,12 +127,9 @@ pub enum CharacterStoreErr {
 mod test {
 
     use super::CharacterStore;
-    use crate::Ability;
-    use crate::AbilityType;
-    use crate::Character;
-    use crate::CharacterId;
-    use crate::Gender;
-    use crate::Race;
+    use crate::domain::ability::{Ability, AbilityType};
+    use crate::domain::character::{Character, CharacterId, Gender, Race};
+
     #[test]
     fn race_match_test() {
         //空のキャラクターを用意
