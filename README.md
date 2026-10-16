@@ -127,9 +127,13 @@ target/release/オリジナルキャラクター図鑑.exe
     ├── domain
     │   ├── character.rs
     │   └── ability.rs
+    │   └── mod.rs
+    │   └── race.rs
+    │   └── element.rs
     ├── repository
     │   ├── character_store.rs
     │   └── character_file.rs
+    │   └── mod.rs
     └── ui
         └── app.rs
 ```
