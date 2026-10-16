@@ -1,9 +1,20 @@
 use crate::Race;
 use crate::domain::ability::{Ability, AbilityType};
+use directories::ProjectDirs;
 use std::fs;
+use std::path::PathBuf;
 
 use crate::domain::character::{Character, CharacterId, Gender};
 use crate::repository::character_store::{CharacterStore, CharacterStoreErr};
+
+// データファイルの保存先を返す
+pub fn data_file_path() -> std::io::Result<PathBuf> {
+    let project_dirs = ProjectDirs::from("jp", "OriginalCharacterBook", "OriginalCharacterBook")
+        .expect("アプリのデータ保存先を取得できませんでした");
+
+    fs::create_dir_all(project_dirs.data_local_dir())?;
+    Ok(project_dirs.data_local_dir().join("file.txt"))
+}
 
 ///キャラクターの情報を保存用の文字列に変換する．
 pub fn character_to_text(character: &Character) -> String {
@@ -58,13 +69,13 @@ pub fn store_character_to_text(store: &CharacterStore) -> String {
 //文字列をファイルに保存，できなければエラーを出す
 pub fn save_store(store: &CharacterStore) -> Result<(), CharacterStoreErr> {
     let store_text = store_character_to_text(store);
-    fs::write("file.txt", store_text)?;
+    fs::write(data_file_path()?, store_text)?;
     Ok(())
 }
 
 //ファイルから文字列を読み込む
 pub fn load_text() -> Result<CharacterStore, CharacterStoreErr> {
-    let text = fs::read_to_string("file.txt")?;
+    let text = fs::read_to_string(data_file_path()?)?;
     text_to_store(&text)
 }
 

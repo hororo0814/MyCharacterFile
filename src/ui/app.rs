@@ -50,7 +50,8 @@ pub struct CharacterApp {
 }
 
 impl CharacterApp {
-    pub fn new(cc: &eframe::CreationContext<'_>, store: CharacterStore) -> Self {
+    //フォントの読み込み
+    pub fn read_fonts(cc: &eframe::CreationContext<'_>) {
         let mut fonts = egui::FontDefinitions::default();
         if let Ok(font_data) = std::fs::read("C:\\Windows\\Fonts\\meiryo.ttc") {
             fonts.font_data.insert(
@@ -64,16 +65,13 @@ impl CharacterApp {
                 .or_default()
                 .insert(0, "meiryo".to_owned());
         }
-
-        cc.egui_ctx.set_fonts(fonts.clone());
-
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(0, "meiryo".to_owned());
-
+        // 読み込みに成功しても失敗しても、フォント設定を適用する
         cc.egui_ctx.set_fonts(fonts);
+    }
+
+    pub fn new(cc: &eframe::CreationContext<'_>, store: CharacterStore) -> Self {
+        //read_fonts()の呼び出し
+        Self::read_fonts(cc);
 
         //初期化する(毎回空文字にする)
         let blank_name = String::new();

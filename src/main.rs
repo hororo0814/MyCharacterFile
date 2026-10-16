@@ -2,11 +2,11 @@ mod domain;
 mod repository;
 mod ui;
 use crate::domain::ability::{Ability, AbilityType};
+use crate::repository::character_file::data_file_path;
 use crate::repository::character_file::load_text;
 use crate::repository::character_file::save_store;
 use crate::repository::character_store::{CharacterStore, CharacterStoreErr};
 use domain::character::{Character, CharacterId, Gender, Race};
-use std::path::Path;
 use ui::app::CharacterApp;
 
 fn create_sample_store() -> Result<CharacterStore, CharacterStoreErr> {
@@ -31,10 +31,15 @@ fn create_sample_store() -> Result<CharacterStore, CharacterStoreErr> {
 }
 
 fn main() -> eframe::Result {
-    println!("作業ディレクトリ: {:?}", std::env::current_dir());
-    println!("読み込み対象: {:?}", std::fs::canonicalize("file.txt"));
+    let file_path = match data_file_path() {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("保存先の取得に失敗しました: {error}");
+            return Err(eframe::Error::AppCreation(Box::new(error)));
+        }
+    };
     //ファイルが存在するかを確認
-    let new_store = if Path::new("file.txt").exists() {
+    let new_store = if file_path.exists() {
         println!("ファイルの存在を確認");
         match load_text() {
             //ファイルが読み込めれば既存のStoreを使う
