@@ -33,9 +33,9 @@ Rust の学習を兼ねた個人開発プロジェクトとして、データ構
 
 ![アプリのメイン画面](screenshots/main.png)
 
-![アプリのメイン画面](screenshots/regist.png)
+![キャラクター新規登録画面](screenshots/regist.png)
 
-![アプリのメイン画面](screenshots/edit.png)
+![キャラクター情報編集画面](screenshots/edit.png)
 
 ### プロフィール管理
 
