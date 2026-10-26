@@ -9,9 +9,11 @@ pub struct Character {
     pub gender: Gender,
     pub abilities: Vec<Ability>,
     pub story: String,
+    pub icon_path: Option<String>,
+    pub likes: u64,
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct CharacterId(pub u64);
 
 impl fmt::Display for CharacterId {
@@ -77,6 +79,8 @@ impl Character {
             gender,
             abilities,
             story,
+            icon_path: None,
+            likes: 0,
         }
     }
 

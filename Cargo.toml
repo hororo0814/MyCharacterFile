@@ -1,9 +1,11 @@
 [package]
 name = "オリジナルキャラクター図鑑"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
 eframe = "0.36.2"
 thiserror = "2"
 directories = "6"
+rfd = "0.15"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }

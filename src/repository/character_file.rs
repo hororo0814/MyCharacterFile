@@ -15,6 +15,29 @@ pub fn data_file_path() -> std::io::Result<PathBuf> {
     Ok(project_dirs.data_local_dir().join("file.txt"))
 }
 
+/// 選択された画像をアプリのデータ領域に保管し、保存用のパスを返す。
+pub fn copy_icon_file(source: &str, id: CharacterId) -> std::io::Result<String> {
+    let data_dir = data_file_path()?
+        .parent()
+        .map(PathBuf::from)
+        .ok_or_else(|| std::io::Error::other("データ保存先が見つかりません"))?;
+    let icon_dir = data_dir.join("icons");
+    fs::create_dir_all(&icon_dir)?;
+    let extension = std::path::Path::new(source)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .filter(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "png" | "jpg" | "jpeg" | "gif" | "webp"
+            )
+        })
+        .unwrap_or("img");
+    let destination = icon_dir.join(format!("{}.{}", id.0, extension));
+    fs::copy(source, &destination)?;
+    Ok(destination.to_string_lossy().into_owned())
+}
+
 ///キャラクターの情報を保存用の文字列に変換する．
 pub fn character_to_text(character: &Character) -> String {
     //年齢はu32型なのでString型に変換する
@@ -42,7 +65,7 @@ pub fn character_to_text(character: &Character) -> String {
         }
     }
 
-    format!(
+    let mut text = format!(
         "{}|{}|{}|{}|{}|{}|{}",
         character.id,
         character.name,
@@ -50,9 +73,18 @@ pub fn character_to_text(character: &Character) -> String {
         character.race,
         character.gender,
         abilities_text,
-        character.story
-    )
-    .to_string()
+        character.story,
+    );
+    // 票数は9番目の項目。画像がなくても8番目の空欄を確保する。
+    if character.icon_path.is_some() || character.likes > 0 {
+        text.push('|');
+        text.push_str(character.icon_path.as_deref().unwrap_or_default());
+    }
+    if character.likes > 0 {
+        text.push('|');
+        text.push_str(&character.likes.to_string());
+    }
+    text
 }
 
 //Store内のCharacterをすべて文字列にする．
@@ -206,6 +238,19 @@ fn text_to_store(text: &str) -> Result<CharacterStore, CharacterStoreErr> {
         }
         let character_story: String = story_text.to_string();
 
+        // アイコンパスは旧形式の保存データでは存在しない
+        let icon_path = fields
+            .next()
+            .filter(|path| !path.is_empty())
+            .map(str::to_owned);
+        // 以前の保存データには票数がないため、0票として読み込む。
+        let likes = match fields.next() {
+            None | Some("") => 0,
+            Some(value) => value.parse::<u64>().map_err(|_| {
+                CharacterStoreErr::InvalidFormat("いいねの票数が不正です".to_string())
+            })?,
+        };
+
         //キャラクターを作る
         let character = Character::new(
             character_id,
@@ -216,6 +261,9 @@ fn text_to_store(text: &str) -> Result<CharacterStore, CharacterStoreErr> {
             abilities,
             character_story,
         );
+        let mut character = character;
+        character.icon_path = icon_path;
+        character.likes = likes;
 
         store.add(character)?;
     }
@@ -225,6 +273,48 @@ fn text_to_store(text: &str) -> Result<CharacterStore, CharacterStoreErr> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn likes_and_optional_icon_survive_save_and_reload() {
+        for icon_path in [None, Some(r"C:\展示画像\キャラ.png".to_string())] {
+            let mut character = Character::new(
+                CharacterId(1),
+                "亜紀".to_string(),
+                Some(17),
+                Race::Human,
+                Gender::Male,
+                vec![],
+                "旅をする".to_string(),
+            );
+            character.icon_path = icon_path;
+            character.likes = 42;
+            let mut store = CharacterStore::new();
+            store.add(character).unwrap();
+
+            let loaded = text_to_store(&store_character_to_text(&store)).unwrap();
+            assert_eq!(loaded.get_all(), store.get_all());
+        }
+    }
+
+    #[test]
+    fn old_save_formats_start_with_zero_likes() {
+        for text in [
+            "1|亜紀|17|Human|Male||旅をする",
+            r"1|亜紀|17|Human|Male||旅をする|C:\画像\キャラ.png",
+        ] {
+            let loaded = text_to_store(text).unwrap();
+            assert_eq!(loaded.get_all()[0].likes, 0);
+            assert_eq!(character_to_text(&loaded.get_all()[0]), text);
+        }
+    }
+
+    #[test]
+    fn invalid_vote_counts_are_not_silently_reset() {
+        for count in ["-1", "abc", "18446744073709551616"] {
+            let text = format!("1|亜紀|17|Human|Male||旅をする||{count}");
+            assert!(text_to_store(&text).is_err());
+        }
+    }
 
     #[test]
     fn test_character_to_text() {

@@ -1,8 +1,12 @@
 use crate::domain::ability::{Ability, AbilityType};
-use crate::domain::character::{Character, CharacterId, Gender, Race};
-use crate::repository::character_file::save_store;
+use crate::domain::character::{CharacterId, Gender, Race};
+use crate::repository::character_file::{copy_icon_file, save_store};
 use crate::repository::character_store::CharacterStore;
 use eframe::egui;
+use std::collections::{HashMap, HashSet};
+
+mod exhibition;
+mod registration;
 
 #[derive(Clone, Copy, PartialEq)]
 enum AppTab {
@@ -12,6 +16,7 @@ enum AppTab {
     Register,
     //キャラクター管理ページ
     Manage,
+    Results,
 }
 
 pub struct CharacterApp {
@@ -41,12 +46,19 @@ pub struct CharacterApp {
     edit_race: Race,
     edit_gender: Gender,
     edit_story: String,
+    edit_icon_path: Option<String>,
     //確認画面を表示するかどうかを保持する
     display_confirm: bool,
     //削除予定のキャラクターIDを保持
     delete_character_id: Option<CharacterId>,
     active_tab: AppTab,
     error_message: Option<String>,
+    icon_path: Option<String>,
+    detail_character: Option<CharacterId>,
+    icon_textures: HashMap<CharacterId, egui::TextureHandle>,
+    on_title: bool,
+    visitor_votes: HashSet<CharacterId>,
+    vote_message: Option<String>,
 }
 
 impl CharacterApp {
@@ -72,7 +84,10 @@ impl CharacterApp {
     pub fn new(cc: &eframe::CreationContext<'_>, store: CharacterStore) -> Self {
         //read_fonts()の呼び出し
         Self::read_fonts(cc);
+        Self::from_store(store)
+    }
 
+    fn from_store(store: CharacterStore) -> Self {
         //初期化する(毎回空文字にする)
         let blank_name = String::new();
         let blank_age = String::new();
@@ -120,29 +135,28 @@ impl CharacterApp {
             edit_gender: blank_edit_gender,
             edit_race: blank_edit_race,
             edit_story: blank_edit_story,
+            edit_icon_path: None,
             display_confirm: first_display_confirm,
             delete_character_id: first_delete_confirm,
             active_tab: AppTab::Encyclopedia,
             error_message: None,
+            icon_path: None,
+            detail_character: None,
+            icon_textures: HashMap::new(),
+            on_title: true,
+            visitor_votes: HashSet::new(),
+            vote_message: None,
         }
     }
 
     //新規キャラクター登録機能
     fn show_registration_ui(&mut self, ui: &mut egui::Ui) {
-        //キャラクター新規登録
-        //不正文字
-        let invalid_chars = ['|', ',', ';'];
-
-        let has_invalid_char_name = invalid_chars.iter().any(|&ch| self.name.contains(ch));
-        let has_invalid_char_story = invalid_chars.iter().any(|&ch| self.story.contains(ch));
-        let has_invalid_char_abi_name = invalid_chars
-            .iter()
-            .any(|&ch| self.ability_name.contains(ch));
-
         //名前の入力
         ui.separator();
         ui.heading("新規キャラクター登録欄");
         ui.separator();
+        self.show_icon_picker(ui);
+        ui.add_space(12.0);
         egui::Frame::new()
             .fill(egui::Color32::from_rgb(174, 191, 255))
             .inner_margin(egui::Margin::same(10))
@@ -259,7 +273,9 @@ impl CharacterApp {
                 ui.add_space(20.0);
 
                 //能力の入力
-                ui.label("所持している能力の設定を行います");
+                ui.label("能力の設定（任意）");
+                ui.label("能力名・威力・消費MPを空欄にすると、能力なしで登録できます。");
+                ui.label("能力は登録後に「キャラ管理」から追加できます。");
 
                 egui::Frame::new()
                     .fill(egui::Color32::from_rgb(215, 215, 255))
@@ -368,278 +384,216 @@ impl CharacterApp {
             .min_size(egui::vec2(220.0, 44.0))
             .fill(egui::Color32::from_rgb(215, 215, 255));
 
-        // 登録ボタンが押されたときの処理
+        // 入力の検証・保存は登録用の関数にまとめる。
         if ui.add(regist_button).clicked() {
-            if self.name.trim().is_empty() {
-                // 名前が空欄の場合
-                self.error_message = Some("名前を空欄にすることはできません".to_string());
-            } else if self.ability_name.trim().is_empty() {
-                // 能力名が空欄の場合
-                self.error_message = Some("能力名を空欄にすることはできません".to_string());
-            } else {
-                if has_invalid_char_name || has_invalid_char_story || has_invalid_char_abi_name {
-                    self.error_message =
-                        Some("'|', ',', ';'を入力に含めることはできません".to_string());
-                } else {
-                    //登録処理
-                    // 年齢を Option<u32> に変換する
-                    let age_result: Result<Option<u32>, std::num::ParseIntError> =
-                        if self.age.trim().is_empty() {
-                            Ok(None)
-                        } else {
-                            self.age.trim().parse::<u32>().map(Some)
-                        };
-
-                    match age_result {
-                        Ok(s_age) => {
-                            // 威力を u32 に変換する
-                            match self.ability_power.trim().parse::<u32>() {
-                                Ok(power) => {
-                                    // 消費MPを u32 に変換する
-                                    match self.ability_mp.trim().parse::<u32>() {
-                                        Ok(mp) => {
-                                            // 次のIDを決める
-                                            let next_id = self
-                                                .store
-                                                .get_all()
-                                                .iter()
-                                                .map(|character| character.id.0)
-                                                .max()
-                                                .unwrap_or(0)
-                                                + 1;
-
-                                            // 能力を生成する
-                                            let new_ability = Ability::new(
-                                                self.ability_name.clone(),
-                                                power,
-                                                self.ability_type.clone(),
-                                                mp,
-                                            );
-
-                                            // 能力をリストに入れる
-                                            let abilities = vec![new_ability];
-
-                                            // キャラクターを生成する
-                                            let new_character = Character::new(
-                                                CharacterId(next_id),
-                                                self.name.clone(),
-                                                s_age,
-                                                self.race.clone(),
-                                                self.gender.clone(),
-                                                abilities,
-                                                self.story.clone(),
-                                            );
-
-                                            // キャラクターを登録する
-                                            match self.store.add(new_character) {
-                                                Ok(()) => {
-                                                    // ファイルに保存する
-                                                    match save_store(&self.store) {
-                                                        Ok(()) => {
-                                                            self.name.clear();
-                                                            self.age.clear();
-                                                            self.story.clear();
-                                                            self.ability_name.clear();
-                                                            self.ability_power.clear();
-                                                            self.ability_mp.clear();
-                                                        }
-                                                        Err(error) => {
-                                                            self.error_message = Some(format!(
-                                                                "保存エラー: {}",
-                                                                error
-                                                            ));
-                                                        }
-                                                    }
-                                                }
-                                                Err(error) => {
-                                                    self.error_message =
-                                                        Some(format!("登録エラー: {}", error));
-                                                }
-                                            }
-                                        }
-                                        Err(_) => {
-                                            self.error_message = Some(
-                                                "消費MPは半角数字で入力してください".to_string(),
-                                            );
-                                        }
-                                    }
-                                }
-                                Err(_) => {
-                                    self.error_message =
-                                        Some("威力は半角数字で入力してください".to_string());
-                                }
-                            }
-                        }
-                        Err(_) => {
-                            self.error_message =
-                                Some("年齢は半角数字で入力してください".to_string());
-                        }
-                    }
-                }
-            }
+            self.error_message = self.register_character().err();
         }
-
         if let Some(message) = &self.error_message {
             ui.colored_label(egui::Color32::RED, message);
         }
     }
 
-    //キャラクター一覧の表示機能
-    fn show_character_list(&mut self, ui: &mut egui::Ui) {
-        // 登録済みキャラクターを表示する
-        ui.separator();
-        ui.heading("登録済みキャラクター");
-
-        for character in self.store.search_by_name(&self.search_name) {
-            egui::Frame::new()
-                //カードの背景色を指定
-                .fill(egui::Color32::from_rgb(208, 215, 253))
-                //カードの内側に余白を作る
-                .inner_margin(egui::Margin::same(16))
-                //カードの角を丸くする
-                .corner_radius(egui::CornerRadius::same(20))
-                //カードの輪郭線をつける
-                .stroke(egui::Stroke::new(
-                    3.0,
-                    egui::Color32::from_rgb(174, 154, 255),
-                ))
-                .show(ui, |ui| {
-                    let age_text = match character.age {
-                        Some(age) => format!("年齢：{}歳", age),
-                        None => "年齢不詳".to_string(),
-                    };
-                    egui::Frame::new()
-                        .fill(egui::Color32::WHITE)
-                        .inner_margin(egui::Margin::same(10))
-                        .corner_radius(egui::CornerRadius::same(10))
-                        .show(ui, |ui| {
-                            ui.heading(&character.name);
-                        });
-
-                    ui.separator();
-                    ui.allocate_ui_with_layout(
-                        egui::vec2(ui.available_width(), 30.0),
-                        egui::Layout::left_to_right(egui::Align::Center),
-                        |ui| {
-                            ui.with_layout(
-                                egui::Layout::left_to_right(egui::Align::Center),
-                                |ui| {
-                                    ui.add_space((ui.available_width() / 2.0 - 100.0).max(0.0));
-                                    ui.label(age_text);
-                                    ui.label(format!("種族：{}", character.race));
-                                    ui.label(format!("性別：{}", character.gender));
-                                },
-                            );
-                        },
-                    );
-
-                    ui.label(format!("ストーリー：{}", character.story));
-                    ui.add_space(10.0);
-
-                    ui.separator();
-
-                    egui::Frame::new()
-                        // 能力欄の背景色：薄い紫
-                        .fill(egui::Color32::from_rgb(240, 235, 255))
-                        // 能力欄の内側の余白
-                        .inner_margin(egui::Margin::same(12))
-                        // 角を丸くする
-                        .corner_radius(egui::CornerRadius::same(8))
-                        // 枠線
-                        .stroke(egui::Stroke::new(
-                            1.0,
-                            egui::Color32::from_rgb(190, 175, 235),
-                        ))
-                        .show(ui, |ui| {
-                            ui.label("能力一覧");
-
-                            for ability in &character.abilities {
-                                let rgb_color = match ability.ability_type {
-                                    AbilityType::Attack => egui::Color32::from_rgb(255, 104, 102),
-                                    AbilityType::Heal => egui::Color32::from_rgb(95, 255, 138),
-                                    AbilityType::Buff => egui::Color32::from_rgb(255, 159, 52),
-                                    AbilityType::Debuff => egui::Color32::from_rgb(100, 100, 255),
-                                };
-
-                                egui::Frame::new()
-                                    .fill(egui::Color32::WHITE)
-                                    .inner_margin(egui::Margin::same(10))
-                                    .corner_radius(egui::CornerRadius::same(10))
-                                    .stroke(egui::Stroke::new(2.0, rgb_color))
-                                    .show(ui, |ui| {
-                                        ui.heading(format!("< {} >", ability.name));
-                                        ui.allocate_ui_with_layout(
-                                            egui::vec2(ui.available_width(), 30.0),
-                                            egui::Layout::left_to_right(egui::Align::Center),
-                                            |ui| {
-                                                ui.with_layout(
-                                                    egui::Layout::left_to_right(
-                                                        egui::Align::Center,
-                                                    ),
-                                                    |ui| {
-                                                        ui.add_space(
-                                                            (ui.available_width() / 2.0 - 100.0)
-                                                                .max(0.0),
-                                                        );
-                                                        egui::Frame::new()
-                                                            .fill(egui::Color32::from_rgb(
-                                                                196, 255, 236,
-                                                            ))
-                                                            .inner_margin(egui::Margin::same(10))
-                                                            .corner_radius(
-                                                                egui::CornerRadius::same(7),
-                                                            )
-                                                            .show(ui, |ui| {
-                                                                ui.label(format!(
-                                                                    "威力：{}",
-                                                                    ability.power
-                                                                ));
-                                                            });
-                                                        egui::Frame::new()
-                                                            .fill(egui::Color32::from_rgb(
-                                                                255, 211, 210,
-                                                            ))
-                                                            .inner_margin(egui::Margin::same(10))
-                                                            .corner_radius(
-                                                                egui::CornerRadius::same(7),
-                                                            )
-                                                            .show(ui, |ui| {
-                                                                ui.label(format!(
-                                                                    "タイプ：{}",
-                                                                    ability.ability_type
-                                                                ));
-                                                            });
-                                                        egui::Frame::new()
-                                                            .fill(egui::Color32::from_rgb(
-                                                                192, 231, 255,
-                                                            ))
-                                                            .inner_margin(egui::Margin::same(10))
-                                                            .corner_radius(
-                                                                egui::CornerRadius::same(7),
-                                                            )
-                                                            .show(ui, |ui| {
-                                                                ui.label(format!(
-                                                                    "消費MP：{}",
-                                                                    ability.cost_mp
-                                                                ));
-                                                            });
-                                                    },
-                                                );
-                                            },
-                                        );
-                                    });
-                                ui.add_space(10.0);
-                            }
-                        });
-                });
-            ui.add_space(20.0);
-        }
-
-        if self.store.search_by_name(&self.search_name).is_empty() {
-            ui.label("対象のキャラクターが見つかりません");
-        }
+    fn show_icon_picker(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            if ui.button("アイコン画像を選択").clicked() {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("画像", &["png", "jpg", "jpeg", "gif", "webp"])
+                    .pick_file()
+                {
+                    self.icon_path = Some(path.to_string_lossy().into_owned());
+                }
+            }
+            ui.label(
+                self.icon_path
+                    .as_deref()
+                    .and_then(|path| std::path::Path::new(path).file_name())
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("画像未選択"),
+            );
+            if self.icon_path.is_some() && ui.button("解除").clicked() {
+                self.icon_path = None;
+            }
+        });
     }
 
+    // 一覧は画面幅に応じて折り返し、選択時に詳細ウィンドウを開く
+    fn show_character_list(&mut self, ui: &mut egui::Ui) {
+        ui.separator();
+        ui.heading("登録済みキャラクター");
+        ui.label("好きなキャラクターにいいね！ 各キャラクターに1回ずつ投票できます。");
+        if let Some(message) = &self.vote_message {
+            ui.label(message);
+        }
+        let ids: Vec<CharacterId> = self
+            .store
+            .search_by_name(&self.search_name)
+            .iter()
+            .map(|character| character.id)
+            .collect();
+        if ids.is_empty() {
+            ui.label("対象のキャラクターが見つかりません");
+            return;
+        }
+
+        let columns = if ui.available_width() >= 760.0 {
+            3
+        } else if ui.available_width() >= 500.0 {
+            2
+        } else {
+            1
+        };
+        let card_width =
+            ((ui.available_width() - 14.0 * (columns - 1) as f32) / columns as f32).max(220.0);
+        // 縦:横をおよそ3:4にして、正方形に近いカードにする
+        let card_height = card_width * 0.75;
+        // 投票ボタンの高さも確保し、カード内に収める。
+        let icon_size = (card_width * 0.64).min(card_height - 138.0).max(24.0);
+        let mut vote_requested = None;
+        egui::Grid::new("character_cards").num_columns(columns).spacing([14.0, 14.0]).show(ui, |ui| {
+            for (index, id) in ids.iter().enumerate() {
+                let character = self.store.find(*id).expect("一覧のIDはストア内に存在する");
+                let selected = ui.allocate_ui_with_layout(
+                    egui::vec2(card_width, card_height),
+                    egui::Layout::top_down(egui::Align::Center),
+                    |ui| {
+                        let mut clicked = false;
+                        egui::Frame::new().fill(egui::Color32::from_rgb(208, 215, 253))
+                            .inner_margin(egui::Margin::same(12)).corner_radius(egui::CornerRadius::same(16))
+                            .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(174, 154, 255)))
+                            .show(ui, |ui| {
+                                // Frame自体も割り当て領域いっぱいに広げ、全画面でも比率を保つ
+                                ui.set_min_size(ui.available_size());
+                                if let Some(path) = &character.icon_path {
+                                    if !self.icon_textures.contains_key(id) {
+                                        if let Ok(bytes) = std::fs::read(path) {
+                                            if let Ok(image) = image::load_from_memory(&bytes) {
+                                                let image = image.thumbnail(512, 512).to_rgba8();
+                                                let size = [image.width() as usize, image.height() as usize];
+                                                let color = egui::ColorImage::from_rgba_unmultiplied(size, image.as_raw());
+                                                self.icon_textures.insert(*id, ui.ctx().load_texture(format!("character_{}", id.0), color, Default::default()));
+                                            }
+                                        }
+                                    }
+                                    if let Some(texture) = self.icon_textures.get(id) {
+                                        clicked |= ui
+                                            .add(
+                                                egui::Image::new((
+                                                    texture.id(),
+                                                    egui::vec2(icon_size, icon_size),
+                                                ))
+                                                .sense(egui::Sense::click()),
+                                            )
+                                            .clicked();
+                                    }
+                                }
+                                if character.icon_path.is_none()
+                                    || !self.icon_textures.contains_key(id)
+                                {
+                                    egui::Frame::new()
+                                        .fill(egui::Color32::WHITE)
+                                        .corner_radius(egui::CornerRadius::same(12))
+                                        .show(ui, |ui| {
+                                            ui.allocate_ui_with_layout(
+                                                egui::vec2(icon_size, icon_size),
+                                                egui::Layout::centered_and_justified(
+                                                    egui::Direction::TopDown,
+                                                ),
+                                                |ui| {
+                                                    ui.label("画像なし");
+                                                },
+                                            );
+                                        });
+                                }
+                                ui.add_space(10.0);
+                                ui.allocate_ui_with_layout(
+                                    egui::vec2(ui.available_width(), 44.0),
+                                    egui::Layout::top_down(egui::Align::Center),
+                                    |ui| {
+                                        clicked |= ui
+                                            .add_sized(
+                                                [card_width * 0.68, 40.0],
+                                                egui::Button::new(
+                                                    egui::RichText::new(&character.name).size(18.0),
+                                                ),
+                                            )
+                                            .clicked();
+                                    },
+                                );
+                                ui.label(
+                                    egui::RichText::new(format!(
+                                        "{} ・ {}",
+                                        character.race, character.gender
+                                    ))
+                                    .size(14.0),
+                                );
+                                let voted = self.visitor_votes.contains(id);
+                                let label = if voted {
+                                    format!("いいね済み  {}票", character.likes)
+                                } else {
+                                    format!("いいね！  {}票", character.likes)
+                                };
+                                if ui.add_enabled(
+                                    !voted,
+                                    egui::Button::new(label)
+                                        .min_size(egui::vec2(card_width * 0.58, 30.0))
+                                        .fill(egui::Color32::from_rgb(255, 225, 235)),
+                                ).clicked() {
+                                    vote_requested = Some(*id);
+                                }
+                            });
+                        clicked
+                    }
+                ).inner;
+                if selected { self.detail_character = Some(*id); }
+                if (index + 1) % columns == 0 { ui.end_row(); }
+            }
+        });
+
+        // 描画中のストアへの参照を解放してから投票を確定する。
+        if let Some(id) = vote_requested {
+            self.cast_vote(id);
+            ui.ctx().request_repaint();
+        }
+
+        if let Some(id) = self.detail_character {
+            let mut open = true;
+            egui::Window::new("キャラクター詳細")
+                .open(&mut open)
+                .show(ui.ctx(), |ui| {
+                    if let Some(character) = self.store.find(id) {
+                        ui.heading(&character.name);
+                        if let Some(texture) = self.icon_textures.get(&id) {
+                            ui.image((texture.id(), egui::vec2(160.0, 160.0)));
+                        }
+                        ui.label(format!(
+                            "年齢：{}",
+                            character
+                                .age
+                                .map(|age| format!("{}歳", age))
+                                .unwrap_or_else(|| "不詳".to_string())
+                        ));
+                        ui.label(format!("種族：{}", character.race));
+                        ui.label(format!("性別：{}", character.gender));
+                        ui.label("ストーリー");
+                        ui.label(&character.story);
+                        ui.separator();
+                        ui.heading("能力一覧");
+                        if character.abilities.is_empty() {
+                            ui.label("能力は未設定です");
+                        }
+                        for ability in &character.abilities {
+                            ui.label(format!(
+                                "{}　威力：{}　タイプ：{}　消費MP：{}",
+                                ability.name, ability.power, ability.ability_type, ability.cost_mp
+                            ));
+                        }
+                    }
+                });
+            if !open {
+                self.detail_character = None;
+            }
+        }
+    }
     //キャラクターの編集機能
     fn show_character_edit_ui(&mut self, ui: &mut egui::Ui) {
         //編集フォームの表示
@@ -653,6 +607,27 @@ impl CharacterApp {
             //カードの角を丸くする
             .corner_radius(egui::CornerRadius::same(20))
             .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.button("アイコン画像を選択・変更").clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("画像", &["png", "jpg", "jpeg", "gif", "webp"])
+                            .pick_file()
+                        {
+                            self.edit_icon_path = Some(path.to_string_lossy().into_owned());
+                        }
+                    }
+                    ui.label(
+                        self.edit_icon_path
+                            .as_deref()
+                            .and_then(|path| std::path::Path::new(path).file_name())
+                            .and_then(|name| name.to_str())
+                            .unwrap_or("画像未設定"),
+                    );
+                    if self.edit_icon_path.is_some() && ui.button("画像を外す").clicked() {
+                        self.edit_icon_path = None;
+                    }
+                });
+
                 // 緑色の枠の幅
                 let frame_width = 300.0;
 
@@ -750,6 +725,25 @@ impl CharacterApp {
                         self.error_message =
                             Some("'|', ',', ';'を入力に含めることはできません".to_string());
                     } else if let Some(id) = self.select_character {
+                        let icon_unchanged = self
+                            .store
+                            .find(id)
+                            .is_some_and(|character| character.icon_path == self.edit_icon_path);
+                        let icon_result = if icon_unchanged {
+                            Ok(self.edit_icon_path.clone())
+                        } else if let Some(path) = &self.edit_icon_path {
+                            copy_icon_file(path, id).map(Some)
+                        } else {
+                            Ok(None)
+                        };
+                        let icon_path = match icon_result {
+                            Ok(path) => path,
+                            Err(error) => {
+                                self.error_message =
+                                    Some(format!("画像を保存できませんでした: {error}"));
+                                return;
+                            }
+                        };
                         let age_result: Result<Option<u32>, std::num::ParseIntError> =
                             if self.edit_age.trim().is_empty() {
                                 Ok(None)
@@ -766,6 +760,8 @@ impl CharacterApp {
                                     character.race = self.edit_race.clone();
                                     character.gender = self.edit_gender.clone();
                                     character.story = self.edit_story.clone();
+                                    character.icon_path = icon_path;
+                                    self.icon_textures.remove(&id);
 
                                     //データを保存する処理
                                     match save_store(&self.store) {
@@ -1003,6 +999,7 @@ impl CharacterApp {
                         Ok(()) => {
                             self.error_message =
                                 Some(format!("キャラクター{}を削除しました", character.name));
+                            self.visitor_votes.remove(&id);
                             self.select_character = None;
                             self.edit_name.clear();
                             self.edit_age.clear();
@@ -1027,12 +1024,29 @@ impl CharacterApp {
 
 impl eframe::App for CharacterApp {
     fn ui(&mut self, ui: &mut eframe::egui::Ui, _frame: &mut eframe::Frame) {
+        if self.on_title {
+            egui::CentralPanel::default().show(ui, |ui| self.show_title_screen(ui));
+            return;
+        }
+
+        // スクロールしても右上の戻るボタンを利用できる。
+        egui::Panel::top("exhibition_navigation").show(ui, |ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("タイトルに戻る").clicked() {
+                    self.return_to_title();
+                    ui.ctx().request_repaint();
+                }
+            });
+        });
+        if self.on_title {
+            return;
+        }
         eframe::egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     ui.vertical_centered(|ui| {
-                        ui.set_max_width(800.0);
+
 
                         // ここに現在の画面全体のUIを置く
                         ui.heading("オリジナルキャラクター図鑑");
@@ -1040,6 +1054,7 @@ impl eframe::App for CharacterApp {
                         ui.horizontal(|ui| {
                             for (tab,label) in [
                                 (AppTab::Encyclopedia, "図鑑"),
+                                (AppTab::Results, "投票結果"),
                                 (AppTab::Register, "新規登録"),
                                 (AppTab::Manage, "キャラ管理"),
                             ]{
@@ -1074,6 +1089,7 @@ impl eframe::App for CharacterApp {
                         });
 
                         match self.active_tab {
+                            AppTab::Results => self.show_voting_results(ui),
                             AppTab::Encyclopedia => {
                                 //区切り線で区切る
                                 ui.separator();
@@ -1139,6 +1155,8 @@ impl eframe::App for CharacterApp {
                                                                     self.edit_race = character.race.clone();
                                                                     self.edit_story =
                                                                         character.story.clone();
+                                                                    self.edit_icon_path =
+                                                                        character.icon_path.clone();
                                                                 }
                                                                 None => {
                                                                     ui.label(
