@@ -5,8 +5,10 @@ use crate::repository::character_store::CharacterStore;
 use eframe::egui;
 use std::collections::{HashMap, HashSet};
 
+mod assets;
 mod exhibition;
 mod registration;
+mod title;
 
 #[derive(Clone, Copy, PartialEq)]
 enum AppTab {
@@ -59,6 +61,7 @@ pub struct CharacterApp {
     on_title: bool,
     visitor_votes: HashSet<CharacterId>,
     vote_message: Option<String>,
+    title_media: title::TitleMedia,
 }
 
 impl CharacterApp {
@@ -146,6 +149,7 @@ impl CharacterApp {
             on_title: true,
             visitor_votes: HashSet::new(),
             vote_message: None,
+            title_media: title::TitleMedia::default(),
         }
     }
 
@@ -396,11 +400,13 @@ impl CharacterApp {
     fn show_icon_picker(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             if ui.button("アイコン画像を選択").clicked() {
-                if let Some(path) = rfd::FileDialog::new()
-                    .add_filter("画像", &["png", "jpg", "jpeg", "gif", "webp"])
-                    .pick_file()
-                {
-                    self.icon_path = Some(path.to_string_lossy().into_owned());
+                match assets::pick_character_image() {
+                    Ok(Some(path)) => self.icon_path = Some(path.to_string_lossy().into_owned()),
+                    Ok(None) => {}
+                    Err(error) => {
+                        self.error_message =
+                            Some(format!("画像フォルダを開けませんでした: {error}"))
+                    }
                 }
             }
             ui.label(
@@ -420,7 +426,6 @@ impl CharacterApp {
     fn show_character_list(&mut self, ui: &mut egui::Ui) {
         ui.separator();
         ui.heading("登録済みキャラクター");
-        ui.label("好きなキャラクターにいいね！ 各キャラクターに1回ずつ投票できます。");
         if let Some(message) = &self.vote_message {
             ui.label(message);
         }
@@ -609,11 +614,15 @@ impl CharacterApp {
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     if ui.button("アイコン画像を選択・変更").clicked() {
-                        if let Some(path) = rfd::FileDialog::new()
-                            .add_filter("画像", &["png", "jpg", "jpeg", "gif", "webp"])
-                            .pick_file()
-                        {
-                            self.edit_icon_path = Some(path.to_string_lossy().into_owned());
+                        match assets::pick_character_image() {
+                            Ok(Some(path)) => {
+                                self.edit_icon_path = Some(path.to_string_lossy().into_owned())
+                            }
+                            Ok(None) => {}
+                            Err(error) => {
+                                self.error_message =
+                                    Some(format!("画像フォルダを開けませんでした: {error}"))
+                            }
                         }
                     }
                     ui.label(
@@ -1025,7 +1034,9 @@ impl CharacterApp {
 impl eframe::App for CharacterApp {
     fn ui(&mut self, ui: &mut eframe::egui::Ui, _frame: &mut eframe::Frame) {
         if self.on_title {
-            egui::CentralPanel::default().show(ui, |ui| self.show_title_screen(ui));
+            egui::CentralPanel::default()
+                .frame(egui::Frame::NONE)
+                .show(ui, |ui| self.show_title_screen(ui));
             return;
         }
 

@@ -4,57 +4,6 @@ use crate::repository::character_file::save_store;
 use eframe::egui;
 
 impl CharacterApp {
-    pub(super) fn show_title_screen(&mut self, ui: &mut egui::Ui) {
-        // スクロール領域の外で、有限のウィンドウ高さから余白を求める。
-        let top_padding = (ui.available_height() * 0.16).max(24.0);
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.add_space(top_padding);
-            ui.vertical_centered(|ui| {
-                ui.set_max_width(680.0);
-                egui::Frame::new()
-                    .fill(egui::Color32::from_rgb(208, 215, 253))
-                    .inner_margin(egui::Margin::same(24))
-                    .corner_radius(egui::CornerRadius::same(20))
-                    .stroke(egui::Stroke::new(
-                        2.0,
-                        egui::Color32::from_rgb(174, 154, 255),
-                    ))
-                    .show(ui, |ui| {
-                        ui.add_space(20.0);
-                        ui.label(
-                            egui::RichText::new("オリジナルキャラクター図鑑")
-                                .size(32.0)
-                                .strong(),
-                        );
-                        ui.add_space(16.0);
-                        ui.label("お気に入りのキャラクターを見つけよう");
-                        ui.label("イラストや物語を楽しんで、好きなキャラクターにいいね！");
-                        ui.add_space(28.0);
-                        if ui
-                            .add_sized(
-                                [240.0_f32.min(ui.available_width()), 56.0],
-                                egui::Button::new(egui::RichText::new("図鑑を見る").size(22.0))
-                                    .fill(egui::Color32::WHITE),
-                            )
-                            .clicked()
-                        {
-                            self.on_title = false;
-                            self.active_tab = AppTab::Encyclopedia;
-                            ui.ctx().request_repaint();
-                        }
-                        ui.add_space(20.0);
-                        ui.label(format!(
-                            "{}人のキャラクターが待っています",
-                            self.store.get_all().len()
-                        ));
-                        ui.add_space(12.0);
-                    });
-                ui.add_space(16.0);
-                ui.label("見終わったら「タイトルに戻る」で次の方へどうぞ。");
-            });
-        });
-    }
-
     pub(super) fn return_to_title(&mut self) {
         self.on_title = true;
         self.active_tab = AppTab::Encyclopedia;
